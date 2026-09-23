@@ -10,7 +10,7 @@ export interface GlazingPrice {
 }
 
 export function priceGlazing(geometry: GlazingGeometry, profile: ProfileConfiguration, lamination: Lamination): GlazingPrice {
-  const { totalArea, activeArea } = geometry;
+  const { totalAreaM2: totalArea, activeAreaM2: activeArea } = geometry;
   if (!Number.isFinite(totalArea) || totalArea <= 0 || !Number.isFinite(activeArea) || activeArea < 0 || activeArea > totalArea) throw new Error('Некорректная площадь.');
   const rates = [profile.basePricePerM2, profile.activityPercent, profile.laminateOneSidePercent, profile.laminateTwoSidesPercent, profile.productMarkupPercent];
   if (rates.some((value) => !Number.isFinite(value) || value < 0)) throw new Error('Тарифы должны быть конечными неотрицательными числами.');

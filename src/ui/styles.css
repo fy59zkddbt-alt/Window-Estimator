@@ -13,11 +13,26 @@ label { display: flex; flex-direction: column; gap: 7px; font-size: 13px; }
 input, select, button { font: inherit; min-height: 42px; border-radius: 6px; }
 input, select { width: 100%; border: 1px solid #a9bbb3; padding: 9px; background: white; color: #18322e; }
 button { cursor: pointer; border: 0; background: #236653; color: white; padding: 10px 16px; }
-button:disabled { opacity: .55; cursor: wait; } :focus-visible { outline: 3px solid #a77b21; outline-offset: 3px; }
+button:disabled { opacity: .55; cursor: not-allowed; } :focus-visible { outline: 3px solid #a77b21; outline-offset: 3px; }
 .secondary { background: #edf2ef; color: #234d41; margin-top: 12px; width: 100%; }
 .total { font-size: 34px; font-weight: 700; margin: 20px 0; }
 dl div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid #edf2ef; }
 dd { margin: 0; text-align: right; } .muted { font-size: 12px; color: #536b62; line-height: 1.6; }
 [role=status] { line-height: 1.5; }
+.checkbox { flex-direction: row; align-items: center; gap: 10px; }
+.checkbox input { width: 18px; min-height: 18px; }
+.section-row { margin-bottom: 12px; }
+summary { cursor: pointer; margin-bottom: 18px; }
+.validation { padding: 14px; border-left: 3px solid #a14029; color: #832c1a; background: #fff1e9; }
+.window-preview { margin: 0; }
+.window-preview svg { width: 100%; height: 320px; padding: 10px; overflow: visible; }
+.glazing { fill: #edf5f7; stroke: #244d50; stroke-width: 2; }
+.transom { fill: #e2edef; }
+.opening-symbol { fill: none; stroke: #247660; stroke-width: 1.5; }
+.opening-symbol.hinge { stroke-width: 5; }
+.opening-symbol.tilt { stroke-dasharray: 5 4; }
+figcaption { font-size: 12px; color: #536b62; line-height: 1.6; }
+figcaption span, figcaption strong { display: block; margin-top: 4px; }
+@media (min-width: 761px) { aside { position: sticky; top: 16px; } }
 @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } main { padding: 20px 12px; } }
 @media (max-width: 420px) { .fields { grid-template-columns: 1fr; } }
