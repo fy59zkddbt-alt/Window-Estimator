@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createWindow, type WindowInput } from '../src/domain/measurements/window/create-window';
+import { createWindow, type RectangularWindowInput } from '../src/domain/measurements/window/create-window';
 import { getWindowGeometry } from '../src/domain/geometry/window-geometry';
 import { active, fixed, input } from './fixtures';
 
-const geometry = (patch: Partial<WindowInput> = {}) => getWindowGeometry(createWindow({ ...input, ...patch }));
+const geometry = (patch: Partial<RectangularWindowInput> = {}) => getWindowGeometry(createWindow({ ...input, ...patch }));
 
 describe('window geometry', () => {
   it('single fixed: converts mm to m² and has no active area or symbols', () => {

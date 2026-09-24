@@ -15,9 +15,9 @@ export function WindowPreview({ geometry }: { geometry: Geometry }) {
       </g>)}
     </svg>
     <figcaption>
-      <strong>{bounds.widthMm.toLocaleString('ru-RU')} × {bounds.heightMm.toLocaleString('ru-RU')} мм</strong>
+      <strong>Габарит эскиза: {bounds.widthMm.toLocaleString('ru-RU')} × {bounds.heightMm.toLocaleString('ru-RU')} мм</strong>
       <span>Вид из помещения. Толстые отметки — петли; пунктир — откидывание. Толщина профиля условная.</span>
-      <span>Секции слева направо: {sections.map((section) => section.widthMm.toLocaleString('ru-RU', { maximumFractionDigits: 6 })).join(' / ')} мм.</span>
+      <span>Элементы слева направо: {sections.map((section) => `${section.widthMm.toLocaleString('ru-RU', { maximumFractionDigits: 6 })} × ${section.heightMm.toLocaleString('ru-RU', { maximumFractionDigits: 6 })}`).join(' / ')} мм.</span>
       {transom && <span>Глухая фрамуга: {transom.heightMm.toLocaleString('ru-RU')} мм.</span>}
     </figcaption>
   </figure>;

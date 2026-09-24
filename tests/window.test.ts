@@ -30,7 +30,7 @@ describe('window invariants', () => {
     expect(() => createWindow({ ...input, sections: [fixed(value)] })).toThrow();
   });
   it.each([0, -1, 1500, 1501, Infinity, NaN])('rejects transom height %s', (heightMm) => {
-    expect(() => createWindow({ ...input, transom: { openingType: 'fixed', heightMm } })).toThrow();
+    expect(() => createWindow({ ...input, transom: { openingType: 'fixed' as const, heightMm } })).toThrow();
   });
   it('rejects an active transom at the runtime boundary', () => {
     expect(() => createWindow({ ...input, transom: { openingType: 'turn', heightMm: 200 } } as unknown as WindowInput)).toThrow('Фрамуга всегда глухая');

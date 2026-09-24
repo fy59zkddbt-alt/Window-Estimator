@@ -4,7 +4,8 @@ import { expect, it } from 'vitest';
 import { EstimatorDatabase } from '../src/infrastructure/storage/database';
 import { DexieCalculationRepository } from '../src/infrastructure/storage/dexie-calculation-repository';
 import { estimateWindow } from '../src/application/estimate/estimate-window';
-import { active, fixed, configuration, input, profile } from './fixtures';
+import { active, fixed, configuration, input, profile, blockInput } from './fixtures';
+import { toWindowInput } from '../src/domain/measurements/window/create-window';
 
 it('persists a calculation and tariff snapshot across database reopen', async () => {
   const db = new EstimatorDatabase('storage-test');
@@ -31,6 +32,24 @@ it('round-trips triple window with per-section hardware, widths and transom', as
     db.close();
     await db.open();
     expect(await repository.get(input.id)).toEqual(result);
+  } finally { await db.delete(); }
+});
+
+it.each([
+  { count: 1, doorPosition: 'left' }, { count: 1, doorPosition: 'right' },
+  { count: 2, doorPosition: 'left' }, { count: 2, doorPosition: 'middle' }, { count: 2, doorPosition: 'right' },
+] as const)('save/load block with $count windows and door $doorPosition', async ({ count, doorPosition }) => {
+  const db = new EstimatorDatabase(`storage-block-${count}-${doorPosition}`);
+  const repository = new DexieCalculationRepository(db);
+  const result = estimateWindow({ ...blockInput, doorPosition, sections: count === 1 ? blockInput.sections : [fixed(500, 'w1'), active(1000, 'w2', 'tilt_turn', 'right')] }, configuration);
+  try {
+    await repository.save(result);
+    db.close();
+    await db.open();
+    const loaded = await repository.get(result.id);
+    expect(loaded).toEqual(result);
+    expect(estimateWindow(toWindowInput(loaded!.measurement), loaded!.configuration)).toEqual(result);
+    expect(loaded!.measurement.kind).toBe('Window');
   } finally { await db.delete(); }
 });
 

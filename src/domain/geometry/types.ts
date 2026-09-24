@@ -9,7 +9,9 @@ export interface OpeningSymbol { kind: 'turn' | 'tilt' | 'hinge'; points: readon
 export type SectionGeometry = Rectangle & Opening & { id: string; areaM2: number; symbols: readonly OpeningSymbol[] };
 export interface TransomGeometry extends Rectangle { openingType: 'fixed'; areaM2: number }
 export interface WindowGeometry extends GlazingGeometry {
+  /** Display extent only. Never use bounding area to price a balcony block. */
   bounds: Rectangle;
+  /** Ordered glazed elements, including the door for balconyBlock. */
   sections: readonly SectionGeometry[];
   transom: TransomGeometry | null;
 }

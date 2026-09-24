@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it } from 'vitest';
 import { WindowPreview } from '../src/ui/WindowPreview';
 import { estimateWindow } from '../src/application/estimate/estimate-window';
-import { active, fixed, input, configuration } from './fixtures';
+import { active, fixed, input, configuration, blockInput } from './fixtures';
 
 it('renders domain rectangles with a uniform SVG scale, including unequal widths and transom', () => {
   const { geometry } = estimateWindow({ ...input, windowType: 'triple', widthMm: 2400, heightMm: 1800,
@@ -16,6 +16,22 @@ it('renders domain rectangles with a uniform SVG scale, including unequal widths
   expect(markup).toContain('x="0" y="300" width="400" height="1500"');
   expect(markup).toContain('x="400" y="300" width="800" height="1500"');
   expect(markup).toContain('x="1200" y="300" width="1200" height="1500"');
+  for (const section of geometry.sections) for (const symbol of section.symbols) {
+    expect(markup).toContain(`points="${symbol.points.map((point) => `${point.xMm},${point.yMm}`).join(' ')}"`);
+  }
+});
+
+it('uses the same SVG renderer for a block and draws no bounding infill', () => {
+  const { geometry } = estimateWindow({ ...blockInput, doorPosition: 'middle', sections: [fixed(500, 'w1'), active(1000, 'w2', 'tilt_turn', 'right')] }, configuration);
+  const markup = renderToStaticMarkup(<WindowPreview geometry={geometry} />);
+  expect(markup).toContain('viewBox="0 0 2200 2200"');
+  expect(markup).toContain('preserveAspectRatio="xMidYMid meet"');
+  const rectangles = markup.match(/<rect[^>]+>/g)!;
+  expect(rectangles).toHaveLength(3);
+  expect(rectangles[0]).toContain('x="0" y="0" width="500" height="1500"');
+  expect(rectangles[1]).toContain('x="500" y="0" width="700" height="2200"');
+  expect(rectangles[2]).toContain('x="1200" y="0" width="1000" height="1500"');
+  expect(markup).not.toContain('width="2200" height="2200"');
   for (const section of geometry.sections) for (const symbol of section.symbols) {
     expect(markup).toContain(`points="${symbol.points.map((point) => `${point.xMm},${point.yMm}`).join(' ')}"`);
   }

@@ -7,7 +7,8 @@ export type Opening =
   | { openingType: 'fixed'; hingeSide?: never; hardwareId?: never }
   | { openingType: 'turn' | 'tilt_turn'; hingeSide: HingeSide; hardwareId: string };
 
-/** Lower section: its height is derived from the window, never duplicated here. */
-export type Section = { id: string; widthMm: number } & Opening;
+export type OpeningElement = { id: string } & Opening;
+/** Window section: its height is derived from the window, never duplicated here. */
+export type Section = OpeningElement & { widthMm: number };
 export interface GlazingPlane { id: string; sections: readonly Section[] }
 export interface MeasurementIdentity { id: string; room: string; name: string }
