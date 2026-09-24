@@ -1,10 +1,10 @@
-import type { Calculation } from '../../domain/calculation';
+import type { WindowCalculation } from '../../domain/calculation';
 import type { UserConfiguration } from '../../domain/configuration/types';
 import { getWindowGeometry } from '../../domain/geometry/window-geometry';
 import { createWindow, getWindowOpeningElements, type WindowInput } from '../../domain/measurements/window/create-window';
 import { priceGlazing } from '../../domain/pricing/glazing-pricing';
 
-export function estimateWindow(input: WindowInput, configuration: UserConfiguration): Calculation {
+export function estimateWindow(input: WindowInput, configuration: UserConfiguration): WindowCalculation {
   const measurement = createWindow(input);
   const profiles = configuration.profiles.filter((item) => item.id === measurement.profileId);
   const profile = profiles[0];

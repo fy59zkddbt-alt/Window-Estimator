@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import type { Calculation } from '../domain/calculation';
+import type { WindowCalculation } from '../domain/calculation';
 import { demoConfiguration } from '../domain/configuration/demo-configuration';
 import type { UserConfiguration } from '../domain/configuration/types';
 import type { HingeSide, Lamination, Material, OpeningType, OpeningElement } from '../domain/measurements/shared';
 import type { WindowType } from '../domain/measurements/window/types';
 import { createEqualSections, toWindowInput, createEditorState, changeWindowType, changeBlockWindowCount, estimateDraft, type WindowInput, type WindowDraft } from '../application/estimate/window-editor';
 import type { CalculationRepository } from '../application/estimate/calculation-repository';
+import { isWindowCalculation } from '../application/estimate/calculation-repository';
+import { FinishScreen } from './FinishScreen';
 import { WindowPreview } from './WindowPreview';
 import { WindowDimensions, fieldValue } from './WindowDimensions';
 import './styles.css';
@@ -24,7 +26,7 @@ const rateFields = [
   ['laminateTwoSidesPercent', 'Ламинация с двух сторон, %'], ['productMarkupPercent', 'Наценка изделия, %'],
 ] as const;
 
-export function App({ repository }: { repository: CalculationRepository }) {
+function WindowScreen({ repository }: { repository: CalculationRepository }) {
   const [editor, setEditor] = useState(() => createEditorState(initialInput));
   const input = editor.input;
   const [configuration, setConfiguration] = useState<UserConfiguration>(demoConfiguration);
@@ -32,7 +34,7 @@ export function App({ repository }: { repository: CalculationRepository }) {
   const [busy, setBusy] = useState(false);
   const profile = configuration.profiles.find((item) => item.id === input.profileId);
   const hardware = configuration.hardware.filter((item) => item.material === input.material);
-  let result: Calculation | undefined;
+  let result: WindowCalculation | undefined;
   let error = '';
   try { result = estimateDraft(input, configuration); }
   catch (reason) { error = reason instanceof Error ? reason.message : 'Некорректные параметры окна.'; }
@@ -77,7 +79,7 @@ export function App({ repository }: { repository: CalculationRepository }) {
     try {
       const saved = await repository.get(draftId);
       if (!saved) { setMessage('Сохранённого расчёта пока нет.'); return; }
-      if (saved.schemaVersion !== 2) throw new Error('Unsupported schema');
+      if (saved.schemaVersion !== 2 || !isWindowCalculation(saved)) throw new Error('Unsupported calculation');
       const restored = toWindowInput(saved.measurement);
       estimateDraft(restored, saved.configuration);
       setEditor(createEditorState(restored)); setConfiguration(saved.configuration);
@@ -132,4 +134,16 @@ export function App({ repository }: { repository: CalculationRepository }) {
       <p role="status" aria-live="polite">{message}</p>
     </aside></div>
   </main>;
+}
+
+export function App({ repository }: { repository: CalculationRepository }) {
+  const [scenario, setScenario] = useState<'window' | 'finish'>('window');
+  return <>
+    <nav className="workflow-nav" aria-label="Сценарий замера">
+      <button aria-pressed={scenario === 'window'} onClick={() => setScenario('window')}>Окно</button>
+      <button aria-pressed={scenario === 'finish'} onClick={() => setScenario('finish')}>Отделка окна</button>
+    </nav>
+    <div hidden={scenario !== 'window'}><WindowScreen repository={repository} /></div>
+    <div hidden={scenario !== 'finish'}><FinishScreen repository={repository} /></div>
+  </>;
 }

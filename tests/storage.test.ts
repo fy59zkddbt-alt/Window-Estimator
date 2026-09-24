@@ -6,6 +6,7 @@ import { DexieCalculationRepository } from '../src/infrastructure/storage/dexie-
 import { estimateWindow } from '../src/application/estimate/estimate-window';
 import { active, fixed, configuration, input, profile, blockInput } from './fixtures';
 import { toWindowInput } from '../src/domain/measurements/window/create-window';
+import { isWindowCalculation } from '../src/application/estimate/calculation-repository';
 
 it('persists a calculation and tariff snapshot across database reopen', async () => {
   const db = new EstimatorDatabase('storage-test');
@@ -48,6 +49,7 @@ it.each([
     await db.open();
     const loaded = await repository.get(result.id);
     expect(loaded).toEqual(result);
+    if (!loaded || !isWindowCalculation(loaded)) throw new Error('Expected window');
     expect(estimateWindow(toWindowInput(loaded!.measurement), loaded!.configuration)).toEqual(result);
     expect(loaded!.measurement.kind).toBe('Window');
   } finally { await db.delete(); }
@@ -75,6 +77,7 @@ it.each(['fixed', 'turn', 'tilt_turn'] as const)('migrates v1 %s without losing 
     await old.table('calculations').put(legacy);
     old.close();
     const saved = await new DexieCalculationRepository(db).get(input.id);
+    if (!saved || !isWindowCalculation(saved)) throw new Error('Expected migrated window');
     expect(saved?.schemaVersion).toBe(2);
     expect(saved?.measurement).toMatchObject({ windowType: 'single', widthMm: 1000, heightMm: 1500, lamination: 'two_sides', room: 'Кухня', name: 'Окно 1' });
     expect(saved?.measurement).not.toHaveProperty('hardwareId');

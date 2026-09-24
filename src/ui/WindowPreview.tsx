@@ -1,6 +1,6 @@
-import type { Calculation } from '../domain/calculation';
+import type { WindowCalculation } from '../domain/calculation';
 
-type Geometry = Calculation['geometry'];
+type Geometry = WindowCalculation['geometry'];
 
 /** SVG consumes millimetre coordinates verbatim. The SVG viewport performs one uniform scale. */
 export function WindowPreview({ geometry }: { geometry: Geometry }) {
