@@ -41,8 +41,8 @@ export function FinishScreen({ repository }: { repository: CalculationRepository
       if (!saved) { setMessage('Сохранённой отделки пока нет.'); return; }
       if (saved.schemaVersion !== 2 || !isFinishCalculation(saved)) throw new Error('Invalid record');
       const { kind: _kind, ...restored } = saved.measurement;
-      estimateFinish(restored, saved.configuration);
-      setInput(restored); setConfiguration(saved.configuration);
+      const recalculated = estimateFinish(restored, saved.configuration);
+      setInput(restored); setConfiguration(recalculated.configuration);
       const ids = { ...chosenIds };
       restored.selections.forEach((selection) => { ids[selection.finishType] = selection.materialId; });
       setChosenIds(ids); setMessage('Отделка загружена с сохранёнными настройками материалов.');
@@ -51,7 +51,7 @@ export function FinishScreen({ repository }: { repository: CalculationRepository
   }
   return <main>
     <header><p className="eyebrow">ОТДЕЛКА ОКНА</p><h1>Откосы и подоконник</h1><p>Самостоятельный замер отделки</p></header>
-    <p className="notice">Демонстрационные материалы и тарифы. Припуски и запас влияют только на материал, работа считается по установленной длине.</p>
+    <p className="notice">Демонстрационные материалы и тарифы. Припуски и закупочное округление влияют только на материал, работа считается по установленной длине.</p>
     <div className="layout"><form onSubmit={(event) => event.preventDefault()}>
       <fieldset disabled={busy}><legend>Помещение и размеры</legend><div className="fields">
         <label>Помещение<input required value={input.room} onChange={(event) => edit({ room: event.target.value })} /></label>
@@ -82,7 +82,7 @@ export function FinishScreen({ repository }: { repository: CalculationRepository
       <p className="muted">¹ В Advanced — закупочная стоимость. В Simple — продажная база материала, отдельная наценка равна нулю.</p>
       {result.geometry.materials.map((quantity) => <details key={quantity.materialId} open className="finish-quantities"><summary>{labels[quantity.finishType]}: размеры и закупка</summary>
         <ul>{quantity.pieces.map((piece) => <li key={piece.part}>{parts[piece.part]}: {length(piece.requiredLengthMm)} × {length(piece.requiredDepthMm)} мм с припусками</li>)}</ul>
-        <p>Потребность: {length(quantity.requiredLengthMm)} мм; запас: {length(quantity.wasteLengthMm)} мм; к закупке: <strong>{length(quantity.purchaseLengthM)} м</strong>.</p>
+        <p>Потребность с припусками: {length(quantity.requiredLengthMm)} мм; к закупке после округления каждой детали: <strong>{length(quantity.purchaseLengthM)} м</strong>.</p>
         <p>Работа: {length(quantity.actualInstalledLengthM)} м. Материал: {amount(result.price.lines.find((line) => line.materialId === quantity.materialId)!.materialSellingPrice)}; работа: {amount(result.price.lines.find((line) => line.materialId === quantity.materialId)!.workPrice)}.</p>
       </details>)}
     </> : <p className="validation" role="alert">{error}</p>}

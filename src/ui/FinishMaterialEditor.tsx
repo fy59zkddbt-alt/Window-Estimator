@@ -6,7 +6,7 @@ export function FinishNumber({ label, value, onChange }: { label: string; value:
 
 const sizingLabels: readonly [keyof FinishSizing, string][] = [
   ['lengthAllowancePerPieceMm', 'Припуск на длину каждой детали, мм'],
-  ['depthAllowanceMm', 'Припуск на глубину, мм'], ['wastePercent', 'Технологический запас, %'],
+  ['depthAllowanceMm', 'Припуск на глубину, мм'],
   ['purchaseStepMm', 'Шаг закупки, мм (0 — без округления)'],
 ];
 
@@ -32,6 +32,6 @@ export function FinishMaterialEditor({ material, onChange }: { material: FinishM
     <FinishNumber label="Полная цена работы, ₽/п.м." value={pricing.workRatePerM} onChange={(workRatePerM) => onChange({ ...material, pricing: { ...pricing, workRatePerM } })} />
     <p className="muted">Укажите полную цену работы для клиента, как если бы материалы уже находились на объекте.</p>
     <div className="fields">{sizingLabels.map(([key, label]) => <FinishNumber key={key} label={label} value={material.sizing[key]} onChange={(value) => onChange({ ...material, sizing: { ...material.sizing, [key]: value } })} />)}</div>
-    <p className="muted">Кратность применяется к суммарной длине этого материала после припусков и запаса. Работы оплачиваются по установленной длине. Диапазон цены учитывает глубину с припуском.</p>
+    <p className="muted">Закупочная длина каждой детали с припуском округляется отдельно, затем длины суммируются. Раскрой между деталями не оптимизируется. Работы оплачиваются по установленной длине. Диапазон цены учитывает глубину с припуском.</p>
   </details>;
 }

@@ -1,6 +1,6 @@
 import type { FinishCalculation } from '../../domain/calculation';
 import type { FinishConfiguration } from '../../domain/configuration/finish-types';
-import { normalizeFinishMaterial } from '../../domain/configuration/normalize-finish';
+import { copyFinishSizing, normalizeFinishMaterial } from '../../domain/configuration/normalize-finish';
 import { createWindowFinish, type WindowFinishInput } from '../../domain/measurements/window-finish/create-window-finish';
 import { getFinishGeometry } from '../../domain/geometry/finish-geometry';
 import { priceFinish } from '../../domain/pricing/finish-pricing';
@@ -19,7 +19,7 @@ export function estimateFinish(input: WindowFinishInput, configuration: FinishCo
   const geometry = getFinishGeometry(measurement, normalizedMaterials.map((item) => ({ finishType: item.finishType, materialId: item.id, sizing: item.sizing })));
   const price = priceFinish(geometry, normalizedMaterials);
   return { id: measurement.id, schemaVersion: 2, measurement, normalizedMaterials, geometry, price,
-    configuration: { currency: configuration.currency, materials: configuration.materials.map((item) => ({ ...item, sizing: { ...item.sizing },
+    configuration: { currency: configuration.currency, materials: configuration.materials.map((item) => ({ ...item, sizing: copyFinishSizing(item.sizing),
       pricing: item.pricing.mode === 'simple'
         ? { ...item.pricing, ...(item.pricing.depthBands ? { depthBands: item.pricing.depthBands.map((band) => ({ ...band })) } : {}) }
         : { ...item.pricing, ...(item.pricing.depthBands ? { depthBands: item.pricing.depthBands.map((band) => ({ ...band })) } : {}) },

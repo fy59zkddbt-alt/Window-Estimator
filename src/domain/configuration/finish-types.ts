@@ -4,8 +4,7 @@ export interface FinishSizing {
   /** Added once to the length of EACH cut piece, not to installed work length. */
   lengthAllowancePerPieceMm: number;
   depthAllowanceMm: number;
-  wastePercent: number;
-  /** Zero means exact aggregate length; positive means round up in this increment. */
+  /** Zero means exact required length; positive rounds EACH physical piece up independently. */
   purchaseStepMm: number;
 }
 export type FinishPricingSettings =

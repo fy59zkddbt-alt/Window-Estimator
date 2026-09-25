@@ -7,6 +7,7 @@ export interface FinishPiece {
   part: 'top' | 'left' | 'right' | 'sill';
   installedLengthMm: number;
   requiredLengthMm: number;
+  purchaseLengthMm: number;
   requiredDepthMm: number;
 }
 export interface FinishMaterialGeometry {
@@ -15,10 +16,8 @@ export interface FinishMaterialGeometry {
   pieces: readonly FinishPiece[];
   actualInstalledLengthM: number;
   requiredDepthMm: number;
-  /** Aggregate cut length after per-piece allowance, before waste. */
+  /** Sum of cut lengths after per-piece allowance. */
   requiredLengthMm: number;
-  wasteLengthMm: number;
-  requiredWithWasteMm: number;
   purchaseLengthMm: number;
   purchaseLengthM: number;
   requiredAreaM2: number;
@@ -52,16 +51,18 @@ export function getFinishGeometry(dimensions: FinishDimensions, materials: reado
       ? [{ part: 'top', length: dimensions.widthMm }, { part: 'left', length: dimensions.heightMm }, { part: 'right', length: dimensions.heightMm }]
       : [{ part: 'sill', length: dimensions.widthMm }];
     const requiredDepthMm = dimensions.depthMm + sizing.depthAllowanceMm;
-    const pieces = lengths.map(({ part, length }) => ({ part, installedLengthMm: length, requiredLengthMm: length + sizing.lengthAllowancePerPieceMm, requiredDepthMm }));
+    const pieces = lengths.map(({ part, length }) => {
+      const requiredLengthMm = length + sizing.lengthAllowancePerPieceMm;
+      return { part, installedLengthMm: length, requiredLengthMm, requiredDepthMm,
+        purchaseLengthMm: roundPurchaseLength(requiredLengthMm, sizing.purchaseStepMm) };
+    });
     const actualInstalledLengthM = lengths.reduce((sum, item) => sum + item.length, 0) / 1000;
     const requiredLengthMm = pieces.reduce((sum, piece) => sum + piece.requiredLengthMm, 0);
-    const wasteLengthMm = requiredLengthMm * sizing.wastePercent / 100;
-    const requiredWithWasteMm = requiredLengthMm + wasteLengthMm;
-    const purchaseLengthMm = roundPurchaseLength(requiredWithWasteMm, sizing.purchaseStepMm);
+    const purchaseLengthMm = pieces.reduce((sum, piece) => sum + piece.purchaseLengthMm, 0);
     const requiredAreaM2 = (requiredLengthMm / 1000) * (requiredDepthMm / 1000);
     const purchaseLengthM = purchaseLengthMm / 1000;
     if ([requiredDepthMm, actualInstalledLengthM, requiredAreaM2, purchaseLengthM].some((value) => !Number.isFinite(value) || value <= 0)) throw new Error('Геометрия отделки вне числового диапазона.');
-    return { finishType, materialId, pieces, actualInstalledLengthM, requiredDepthMm, requiredLengthMm, wasteLengthMm, requiredWithWasteMm, purchaseLengthMm, purchaseLengthM, requiredAreaM2 };
+    return { finishType, materialId, pieces, actualInstalledLengthM, requiredDepthMm, requiredLengthMm, purchaseLengthMm, purchaseLengthM, requiredAreaM2 };
   });
   return { slopeLengthM: geometry.find((item) => item.finishType === 'slope')?.actualInstalledLengthM ?? 0,
     sillLengthM: geometry.find((item) => item.finishType === 'sill')?.actualInstalledLengthM ?? 0, materials: geometry };

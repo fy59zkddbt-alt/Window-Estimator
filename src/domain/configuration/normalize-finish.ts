@@ -4,7 +4,12 @@ export function nonnegative(value: number): void {
   if (!Number.isFinite(value) || value < 0) throw new Error('Параметры отделки должны быть конечными неотрицательными числами.');
 }
 export function validateFinishSizing(sizing: FinishSizing): void {
-  [sizing.lengthAllowancePerPieceMm, sizing.depthAllowanceMm, sizing.wastePercent, sizing.purchaseStepMm].forEach(nonnegative);
+  [sizing.lengthAllowancePerPieceMm, sizing.depthAllowanceMm, sizing.purchaseStepMm].forEach(nonnegative);
+}
+/** Copy only current parameters; obsolete fields from stored records are not propagated. */
+export function copyFinishSizing(sizing: FinishSizing): FinishSizing {
+  return { lengthAllowancePerPieceMm: sizing.lengthAllowancePerPieceMm,
+    depthAllowanceMm: sizing.depthAllowanceMm, purchaseStepMm: sizing.purchaseStepMm };
 }
 export function validateNormalizedFinishMaterial(material: NormalizedFinishMaterial): void {
   if (!material.id.trim() || !material.name.trim()) throw new Error('Укажите ID и название материала отделки.');
@@ -28,7 +33,7 @@ export function normalizeFinishMaterial(source: FinishMaterialConfiguration): No
     pricing.depthBands?.forEach((band) => nonnegative(band.coefficient));
   }
   const material: NormalizedFinishMaterial = {
-    id: source.id, name: source.name, finishType: source.finishType, sizing: { ...source.sizing },
+    id: source.id, name: source.name, finishType: source.finishType, sizing: copyFinishSizing(source.sizing),
     purchasePricePerM: pricing.mode === 'simple' ? pricing.materialSellingPricePerM * (pricing.depthCoefficient ?? 1) : pricing.materialPurchasePricePerM,
     materialMarkupPercent: pricing.mode === 'simple' ? 0 : pricing.materialMarkupPercent,
     workRatePerM: pricing.workRatePerM,
