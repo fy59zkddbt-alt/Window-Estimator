@@ -1,25 +1,25 @@
 import { useState } from 'react';
-import type { FinishCalculation } from '../domain/calculation';
+import type { FinishEstimate } from '../domain/measurement-estimate';
 import type { FinishConfiguration, FinishType } from '../domain/configuration/finish-types';
 import { demoFinishConfiguration } from '../domain/configuration/demo-finish-configuration';
 import { estimateFinish, type WindowFinishInput } from '../application/estimate/estimate-finish';
-import { isFinishCalculation, type CalculationRepository } from '../application/estimate/calculation-repository';
+
 import { FinishMaterialEditor, FinishNumber } from './FinishMaterialEditor';
 
-const finishId = 'window-finish-demo';
+
 const labels = { slope: 'Откосы', sill: 'Подоконник' };
 const parts = { top: 'Верх', left: 'Левая сторона', right: 'Правая сторона', sill: 'Подоконник' };
 const amount = (value: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(value);
 const length = (value: number) => value.toLocaleString('ru-RU', { maximumFractionDigits: 6 });
 
-export function FinishScreen({ repository }: { repository: CalculationRepository }) {
-  const [input, setInput] = useState<WindowFinishInput>({ id: finishId, room: 'Кухня', name: 'Отделка окна 1', widthMm: 1400, heightMm: 1500, depthMm: 250,
+export function FinishScreen({ id, initial, onSave, onCancel }: { id: string; initial?: FinishEstimate; onSave: (result: FinishEstimate) => Promise<void>; onCancel: () => void }) {
+  const [input, setInput] = useState<WindowFinishInput>(initial?.measurement ?? { id, room: 'Кухня', name: 'Отделка окна 1', widthMm: 1400, heightMm: 1500, depthMm: 250,
     selections: [{ finishType: 'slope', materialId: 'slope-simple' }, { finishType: 'sill', materialId: 'sill-simple' }] });
-  const [chosenIds, setChosenIds] = useState({ slope: 'slope-simple', sill: 'sill-simple' });
-  const [configuration, setConfiguration] = useState<FinishConfiguration>(demoFinishConfiguration);
+  const [chosenIds, setChosenIds] = useState({ slope: initial?.measurement.selections.find((s) => s.finishType === 'slope')?.materialId ?? 'slope-simple', sill: initial?.measurement.selections.find((s) => s.finishType === 'sill')?.materialId ?? 'sill-simple' });
+  const [configuration, setConfiguration] = useState<FinishConfiguration>(initial?.configuration ?? demoFinishConfiguration);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  let result: FinishCalculation | undefined;
+  let result: FinishEstimate | undefined;
   let error = '';
   try { result = estimateFinish(input, configuration); }
   catch (reason) { error = reason instanceof Error ? reason.message : 'Проверьте параметры отделки.'; }
@@ -30,23 +30,8 @@ export function FinishScreen({ repository }: { repository: CalculationRepository
   async function save() {
     if (!result) return;
     setBusy(true);
-    try { await repository.save(result); setMessage('Отделка сохранена в этом браузере.'); }
+    try { await onSave(result); }
     catch { setMessage('Не удалось сохранить отделку. Проверьте доступность IndexedDB.'); }
-    finally { setBusy(false); }
-  }
-  async function load() {
-    setBusy(true);
-    try {
-      const saved = await repository.get(finishId);
-      if (!saved) { setMessage('Сохранённой отделки пока нет.'); return; }
-      if (saved.schemaVersion !== 2 || !isFinishCalculation(saved)) throw new Error('Invalid record');
-      const { kind: _kind, ...restored } = saved.measurement;
-      const recalculated = estimateFinish(restored, saved.configuration);
-      setInput(restored); setConfiguration(recalculated.configuration);
-      const ids = { ...chosenIds };
-      restored.selections.forEach((selection) => { ids[selection.finishType] = selection.materialId; });
-      setChosenIds(ids); setMessage('Отделка загружена с сохранёнными настройками материалов.');
-    } catch { setMessage('Не удалось загрузить отделку: хранилище недоступно или запись повреждена.'); }
     finally { setBusy(false); }
   }
   return <main>
@@ -86,9 +71,9 @@ export function FinishScreen({ repository }: { repository: CalculationRepository
         <p>Работа: {length(quantity.actualInstalledLengthM)} м. Материал: {amount(result.price.lines.find((line) => line.materialId === quantity.materialId)!.materialSellingPrice)}; работа: {amount(result.price.lines.find((line) => line.materialId === quantity.materialId)!.workPrice)}.</p>
       </details>)}
     </> : <p className="validation" role="alert">{error}</p>}
-      <button disabled={busy || !result} onClick={() => void save()}>Сохранить отделку</button>
-      <button className="secondary" disabled={busy} onClick={() => void load()}>Загрузить отделку</button>
-      <p className="muted">Один расчёт отделки хранится локально отдельно от расчёта окна. Новое сохранение заменяет предыдущую отделку.</p>
+      <button disabled={busy || !result} onClick={() => void save()}>Сохранить замер</button>
+      <button className="secondary" disabled={busy} onClick={onCancel}>Отмена</button>
+
       <p role="status" aria-live="polite">{message}</p>
     </aside></div>
   </main>;

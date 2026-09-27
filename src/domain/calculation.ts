@@ -1,31 +1,22 @@
 import type { WindowMeasurement } from './measurements/window/types';
-import type { BalconyMeasurement } from './measurements/balcony/types';
 import type { WindowFinishMeasurement } from './measurements/window-finish/types';
 import type { UserConfiguration } from './configuration/types';
-import type { WindowGeometry } from './geometry/types';
-import type { GlazingPrice } from './pricing/glazing-pricing';
-import type { FinishConfiguration, NormalizedFinishMaterial } from './configuration/finish-types';
-import type { FinishGeometry } from './geometry/finish-geometry';
-import type { FinishPrice } from './pricing/finish-pricing';
+import type { FinishConfiguration } from './configuration/finish-types';
 
-export type Measurement = WindowMeasurement | BalconyMeasurement | WindowFinishMeasurement;
-export interface WindowCalculation {
+export type Measurement = WindowMeasurement | WindowFinishMeasurement;
+export type MeasurementConfiguration =
+  | { kind: 'Window'; configuration: UserConfiguration }
+  | { kind: 'WindowFinish'; configuration: FinishConfiguration };
+export interface Calculation {
   id: string;
-  schemaVersion: 2;
-  measurement: WindowMeasurement;
-  configuration: UserConfiguration;
-  geometry: WindowGeometry;
-  price: GlazingPrice;
+  schemaVersion: 3;
+  createdAt: string;
+  updatedAt: string;
+  clientName?: string;
+  clientPhone?: string;
+  objectAddress?: string;
+  measurements: readonly Measurement[];
+  orderAdditionalWorks: readonly never[];
+  /** Independent tariff snapshots keyed by measurement ID. */
+  configuration: Readonly<Record<string, MeasurementConfiguration>>;
 }
-
-export interface FinishCalculation {
-  id: string;
-  schemaVersion: 2;
-  measurement: WindowFinishMeasurement;
-  configuration: FinishConfiguration;
-  normalizedMaterials: readonly NormalizedFinishMaterial[];
-  geometry: FinishGeometry;
-  price: FinishPrice;
-}
-
-export type Calculation = WindowCalculation | FinishCalculation;

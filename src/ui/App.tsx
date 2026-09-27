@@ -1,149 +1,104 @@
-import { useState } from 'react';
-import type { WindowCalculation } from '../domain/calculation';
-import { demoConfiguration } from '../domain/configuration/demo-configuration';
-import type { UserConfiguration } from '../domain/configuration/types';
-import type { HingeSide, Lamination, Material, OpeningType, OpeningElement } from '../domain/measurements/shared';
-import type { WindowType } from '../domain/measurements/window/types';
-import { createEqualSections, toWindowInput, createEditorState, changeWindowType, changeBlockWindowCount, estimateDraft, type WindowInput, type WindowDraft } from '../application/estimate/window-editor';
-import type { CalculationRepository } from '../application/estimate/calculation-repository';
-import { isWindowCalculation } from '../application/estimate/calculation-repository';
+import { useEffect, useState } from 'react';
+import type { Calculation } from '../domain/calculation';
+import type { MeasurementEstimate } from '../domain/measurement-estimate';
+import { type CalculationRepository, isWindowEstimate } from '../application/estimate/calculation-repository';
+import { createCalculation, copyMeasurement, deleteMeasurement, estimateCalculation, saveMeasurement, updateCalculationDetails } from '../application/estimate/calculation-service';
+import { WindowScreen } from './WindowScreen';
 import { FinishScreen } from './FinishScreen';
-import { WindowPreview } from './WindowPreview';
-import { WindowDimensions, fieldValue } from './WindowDimensions';
 import './styles.css';
 
-// Preserve the existing storage key so the v1 single-window record remains accessible.
-const draftId = 'single-window-demo';
-const money = (value: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(value);
-const numeric = (value: string) => value === '' ? NaN : Number(value);
-const initialInput: WindowInput = {
-  id: draftId, room: 'Кухня', name: 'Окно 1', windowType: 'single', widthMm: 1000, heightMm: 1500,
-  material: 'pvc', profileId: 'pvc', lamination: 'none', sections: createEqualSections('single', 1000),
-};
-const rateFields = [
-  ['basePricePerM2', 'Базовая цена, ₽/м²'], ['activityPercent', 'Активная створка, %'],
-  ['laminateOneSidePercent', 'Ламинация с одной стороны, %'],
-  ['laminateTwoSidesPercent', 'Ламинация с двух сторон, %'], ['productMarkupPercent', 'Наценка изделия, %'],
-] as const;
+type Editor = { id: string; kind: 'Window' | 'WindowFinish'; initial?: MeasurementEstimate };
+const now = () => new Date().toISOString();
+const money = (minor: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(minor / 100);
 
-function WindowScreen({ repository }: { repository: CalculationRepository }) {
-  const [editor, setEditor] = useState(() => createEditorState(initialInput));
-  const input = editor.input;
-  const [configuration, setConfiguration] = useState<UserConfiguration>(demoConfiguration);
-  const [message, setMessage] = useState('');
-  const [busy, setBusy] = useState(false);
-  const profile = configuration.profiles.find((item) => item.id === input.profileId);
-  const hardware = configuration.hardware.filter((item) => item.material === input.material);
-  let result: WindowCalculation | undefined;
-  let error = '';
-  try { result = estimateDraft(input, configuration); }
-  catch (reason) { error = reason instanceof Error ? reason.message : 'Некорректные параметры окна.'; }
-
-  function update(input: WindowDraft) { setEditor({ ...editor, input }); setMessage(''); }
-  function edit(patch: Partial<Pick<WindowDraft, 'room' | 'name' | 'material' | 'profileId' | 'lamination' | 'sections'>>) { update({ ...input, ...patch }); }
-  function editOpening(element: OpeningElement) {
-    if (input.windowType === 'balconyBlock' && element.id === input.door.id) update({ ...input, door: element });
-    else edit({ sections: input.sections.map((section) => section.id === element.id ? { ...element, widthMm: section.widthMm } : section) });
+export function App({ repository }: { repository: CalculationRepository }) {
+  const [calculations, setCalculations] = useState<Calculation[]>([]);
+  const [current, setCurrent] = useState<Calculation>();
+  const [screen, setScreen] = useState<'composition' | 'choose' | 'estimate'>('composition');
+  const [editor, setEditor] = useState<Editor>();
+  const [busy, setBusy] = useState(true);
+  const [error, setError] = useState('');
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const items = await repository.list();
+        const activeId = await repository.getActiveId();
+        if (!cancelled) { setCalculations(items); setCurrent(items.find((item) => item.id === activeId) ?? items[0]); setReady(true); }
+      } catch { if (!cancelled) setError('Не удалось открыть хранилище. Данные не удалены. Перезагрузите страницу после устранения ошибки.'); }
+      finally { if (!cancelled) setBusy(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [repository]);
+  async function persist(value: Calculation) {
+    await repository.save(value);
+    setCurrent(value);
+    setCalculations((items) => [value, ...items.filter((item) => item.id !== value.id)]);
   }
-  function changeType(windowType: WindowType) {
-    try { setEditor(changeWindowType(editor, windowType)); setMessage(''); }
-    catch { setMessage('Для выбора типа сначала введите положительную ширину окна.'); }
-  }
-  function changeOpening(existing: OpeningElement, openingType: OpeningType) {
-    const base = { id: existing.id };
-    editOpening(openingType === 'fixed' ? { ...base, openingType } : {
-      ...base, openingType, hingeSide: existing.hingeSide ?? 'left', hardwareId: existing.hardwareId ?? (input.windowType === 'balconyBlock' ? '' : hardware[0]?.id ?? ''),
-    });
-  }
-  function changeMaterial(material: Material) {
-    const compatibleHardware = configuration.hardware.find((item) => item.material === material)?.id ?? '';
-    const common = { material, profileId: configuration.profiles.find((item) => item.material === material)?.id ?? '',
-      sections: input.sections.map((section) => section.openingType === 'fixed' ? section : { ...section, hardwareId: compatibleHardware }),
-    };
-    if (input.windowType === 'balconyBlock') update({ ...input, ...common, door: input.door.openingType === 'fixed' ? input.door : { ...input.door, hardwareId: compatibleHardware } });
-    else update({ ...input, ...common });
-  }
-  function changeRate(key: typeof rateFields[number][0], value: string) {
-    setConfiguration({ ...configuration, profiles: configuration.profiles.map((item) => item.id === input.profileId ? { ...item, [key]: numeric(value) } : item) });
-    setMessage('');
-  }
-  async function save() {
-    if (!result) return;
-    setBusy(true);
-    try { await repository.save(result); setMessage('Расчёт сохранён в этом браузере. Предыдущий демо-расчёт заменён.'); }
-    catch { setMessage('Не удалось сохранить расчёт. Проверьте доступность IndexedDB.'); }
+  async function action(work: () => Promise<void>) {
+    setBusy(true); setError('');
+    try { await work(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось сохранить изменения.'); }
     finally { setBusy(false); }
   }
-  async function load() {
-    setBusy(true);
-    try {
-      const saved = await repository.get(draftId);
-      if (!saved) { setMessage('Сохранённого расчёта пока нет.'); return; }
-      if (saved.schemaVersion !== 2 || !isWindowCalculation(saved)) throw new Error('Unsupported calculation');
-      const restored = toWindowInput(saved.measurement);
-      estimateDraft(restored, saved.configuration);
-      setEditor(createEditorState(restored)); setConfiguration(saved.configuration);
-      setMessage('Загружен локальный расчёт с сохранёнными тарифами.');
-    } catch { setMessage('Не удалось загрузить расчёт: хранилище недоступно или запись повреждена.'); }
-    finally { setBusy(false); }
+  async function saveEditor(result: MeasurementEstimate) {
+    if (!current || !editor || result.measurement.id !== editor.id) throw new Error('Неверный ID замера.');
+    await persist(saveMeasurement(current, result, now(), editor.initial ? 'edit' : 'add'));
+    setEditor(undefined); setScreen('composition');
   }
-
-  // Form order is stable by identity. Visual left-to-right order is supplied only by domain geometry.
-  const windowOpenings = input.sections.map((element, index) => ({ element, label: `Секция ${index + 1}` }));
-  const openingItems = input.windowType === 'balconyBlock' ? [{ element: input.door, label: 'Дверь' }, ...windowOpenings] : windowOpenings;
-  const firstOpeningStep = input.windowType === 'balconyBlock' ? 5 : 4;
-
+  if (editor) {
+    const initial = editor.initial;
+    return editor.kind === 'Window'
+      ? <WindowScreen key={editor.id} id={editor.id} {...(initial && isWindowEstimate(initial) ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />
+      : <FinishScreen key={editor.id} id={editor.id} {...(initial && !isWindowEstimate(initial) ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
+  }
+  const estimate = current ? estimateCalculation(current) : undefined;
   return <main>
-    <header><p className="eyebrow">ЗАМЕР → РАСЧЁТ → СМЕТА</p><h1>Window Estimator</h1><p>Окно · базовый оконный замер</p></header>
-    <p className="notice">Демонстрационные тарифы. Стоимость только остекления, без монтажа и дополнительных работ.</p>
-    <div className="layout"><form onSubmit={(event) => event.preventDefault()}>
-      <fieldset disabled={busy}><legend>1. Помещение и тип окна</legend><div className="fields">
-        <label>Помещение<input required value={input.room} onChange={(e) => edit({ room: e.target.value })} /></label>
-        <label>Название<input required value={input.name} onChange={(e) => edit({ name: e.target.value })} /></label>
-        <label>Тип окна<select aria-label="Тип окна" value={input.windowType} onChange={(e) => changeType(e.target.value as WindowType)}><option value="single">Одностворчатое</option><option value="double">Двустворчатое</option><option value="triple">Трёхстворчатое</option><option value="balconyBlock">Балконный блок</option></select></label>
-      </div><p className="muted">Новые элементы создаются глухими. Single/double/triple создают равные секции при смене типа. Черновик балконного блока хранится отдельно от прямоугольного окна до перезагрузки.</p></fieldset>
-      <WindowDimensions input={input} busy={busy} onChange={update} onCountChange={(count) => { setEditor(changeBlockWindowCount(editor, count)); setMessage(''); }} onError={setMessage} />
-      <fieldset disabled={busy}><legend>{firstOpeningStep}. Открывания</legend>{openingItems.map(({ element, label }) => <div className="section-row fields" key={element.id}>
-        <label>{label}: открывание<select aria-label={`${label}: открывание`} value={element.openingType} onChange={(e) => changeOpening(element, e.target.value as OpeningType)}><option value="fixed">Глухое</option><option value="turn">Поворотное</option><option value="tilt_turn">Поворотно-откидное</option></select></label>
-        {element.openingType !== 'fixed' && <label>{label}: петли<select aria-label={`${label}: петли`} value={element.hingeSide} onChange={(e) => editOpening({ ...element, hingeSide: e.target.value as HingeSide })}><option value="left">Слева</option><option value="right">Справа</option></select></label>}
-      </div>)}</fieldset>
-      <fieldset disabled={busy}><legend>{firstOpeningStep + 1}. Материал и профиль</legend><div className="fields">
-        <label>Материал<select aria-label="Материал" value={input.material} onChange={(e) => changeMaterial(e.target.value as Material)}><option value="pvc">ПВХ</option><option value="aluminium">Алюминий</option></select></label>
-        <label>Профиль<select aria-label="Профиль" value={input.profileId} onChange={(e) => edit({ profileId: e.target.value })}>{configuration.profiles.filter((item) => item.material === input.material).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-      </div><p className="muted">При смене материала выбираются первый совместимый профиль и фурнитура.</p></fieldset>
-      <fieldset disabled={busy}><legend>{firstOpeningStep + 2}. Фурнитура активных элементов</legend><div className="fields">
-        {openingItems.map(({ element, label }) => element.openingType !== 'fixed' && <label key={element.id}>{label}: фурнитура<select aria-label={`${label}: фурнитура`} value={element.hardwareId} onChange={(e) => editOpening({ ...element, hardwareId: e.target.value })}><option value="">Выберите фурнитуру</option>{hardware.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>)}
-      </div><p className="muted">У глухих секций фурнитуры нет. Отдельная надбавка за фурнитуру не начисляется.</p></fieldset>
-      <fieldset disabled={busy}><legend>{firstOpeningStep + 3}. Ламинация</legend><label>Ламинация<select aria-label="Ламинация" value={input.lamination} onChange={(e) => edit({ lamination: e.target.value as Lamination })}><option value="none">Нет</option><option value="one_side">Одна сторона</option><option value="two_sides">Две стороны</option></select></label></fieldset>
-      <details><summary>Демонстрационные тарифы профиля</summary><fieldset disabled={busy}><div className="fields">{profile && rateFields.map(([key, label]) => <label key={key}>{label}<input type="number" min="0" step="any" required value={fieldValue(profile[key])} onChange={(e) => changeRate(key, e.target.value)} /></label>)}</div></fieldset></details>
-    </form><aside>
-      <h2>Технический эскиз</h2>
-      {result ? <WindowPreview geometry={result.geometry} /> : <p className="validation" role="alert">{error}</p>}
-      <h2>Текущая цена</h2>{result ? <>
-        <p className="total">{money(result.price.totalMinor / 100)}</p>
-        <dl>{[
-          ['Общая площадь', `${result.geometry.totalAreaM2.toLocaleString('ru-RU', { maximumFractionDigits: 6 })} м²`],
-          ['Активная площадь', `${result.geometry.activeAreaM2.toLocaleString('ru-RU', { maximumFractionDigits: 6 })} м²`],
-          ['Базовая стоимость', money(result.price.baseAmount)], ['Активные створки', money(result.price.activityAmount)],
-          ['Ламинация', money(result.price.colorAmount)], ['Наценка', money(result.price.markupAmount)],
-        ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-      </> : <p>Цена недоступна: исправьте параметры окна.</p>}
-      <button disabled={busy || !result} onClick={() => void save()}>Сохранить в браузере</button>
-      <button className="secondary" disabled={busy} onClick={() => void load()}>Загрузить сохранённый расчёт</button>
-      <p className="muted">Один локальный демо-расчёт. Сохранение заменяет предыдущий. Данные доступны только в этом браузере.</p>
-      <p role="status" aria-live="polite">{message}</p>
-    </aside></div>
+    <header><p className="eyebrow">ЗАМЕР → РАСЧЁТ → СМЕТА</p><h1>Window Estimator</h1></header>
+    <fieldset disabled={busy || !ready}>
+      <div className="calculation-actions">
+        <button onClick={() => void action(async () => { await persist(createCalculation(crypto.randomUUID(), now())); setScreen('composition'); })}>Новый расчёт</button>
+        <label>Сохранённые расчёты<select aria-label="Сохранённые расчёты" value={current?.id ?? ''} onChange={(event) => {
+          const id = event.target.value;
+          void action(async () => { const loaded = await repository.get(id); if (!loaded) throw new Error('Расчёт не найден.'); await repository.setActiveId(id); setCurrent(loaded); setScreen('composition'); });
+        }}><option value="" disabled>Выберите расчёт</option>{calculations.map((item) => <option key={item.id} value={item.id}>{item.clientName || item.objectAddress || 'Расчёт'} · {new Date(item.createdAt).toLocaleString('ru-RU')} · {item.id.slice(0, 8)}</option>)}</select></label>
+      </div>
+    </fieldset>
+    {busy && <p role="status">Сохранение / загрузка…</p>}
+    {error && <p role="alert" className="validation">{error}</p>}
+    {!current && ready && <p>Создайте расчёт, затем добавьте окно или отделку окна.</p>}
+    {current && estimate && <>
+      <CalculationDetails key={`${current.id}:${current.updatedAt}`} calculation={current} busy={busy} onSave={(details) => action(() => persist(updateCalculationDetails(current, details, now())))} />
+      {screen === 'choose' ? <section><h2>Добавить замер</h2><div className="calculation-actions">
+        <button disabled={busy} onClick={() => setEditor({ id: crypto.randomUUID(), kind: 'Window' })}>Окно</button>
+        <button disabled={busy} onClick={() => setEditor({ id: crypto.randomUUID(), kind: 'WindowFinish' })}>Отделка окна</button>
+        <button disabled={busy} onClick={() => setScreen('composition')}>К составу расчёта</button>
+      </div></section> : <>
+        <h2>{screen === 'estimate' ? 'Смета' : 'Состав расчёта'}</h2>
+        {estimate.lines.length === 0 && <p>В расчёте пока нет замеров.</p>}
+        {estimate.lines.map((line) => <article className="measurement-card" key={line.id}>
+          <h3>{line.name} · {line.room}</h3><p>{line.description}</p><p>{line.dimensions}</p><strong>{money(line.totalMinor)}</strong>
+          {screen === 'composition' && <div className="calculation-actions">
+            <button disabled={busy} onClick={() => setEditor({ id: line.id, kind: line.result.measurement.kind, initial: line.result })}>Изменить</button>
+            <button disabled={busy} onClick={() => void action(() => persist(copyMeasurement(current, line.id, crypto.randomUUID(), now())))}>Копировать</button>
+            <button disabled={busy} onClick={() => void action(() => persist(deleteMeasurement(current, line.id, now())))}>Удалить</button>
+          </div>}
+        </article>)}
+        <p className="total">Итого: {money(estimate.subtotalMinor)}</p>
+        <div className="calculation-actions">
+          <button disabled={busy} onClick={() => setScreen('choose')}>{estimate.lines.length ? 'Добавить ещё' : 'Добавить замер'}</button>
+          {screen === 'composition' ? <button disabled={busy || !estimate.lines.length} onClick={() => setScreen('estimate')}>Перейти к смете</button> : <button onClick={() => setScreen('composition')}>К составу расчёта</button>}
+        </div>
+      </>}
+      <p className="muted">Замеры сохраняются в браузере после «Сохранить замер». Копирование и удаление сохраняются сразу. Незавершённый ввод в редакторе не сохраняется.</p>
+    </>}
   </main>;
 }
 
-export function App({ repository }: { repository: CalculationRepository }) {
-  const [scenario, setScenario] = useState<'window' | 'finish'>('window');
-  return <>
-    <nav className="workflow-nav" aria-label="Сценарий замера">
-      <button aria-pressed={scenario === 'window'} onClick={() => setScenario('window')}>Окно</button>
-      <button aria-pressed={scenario === 'finish'} onClick={() => setScenario('finish')}>Отделка окна</button>
-    </nav>
-    <div hidden={scenario !== 'window'}><WindowScreen repository={repository} /></div>
-    <div hidden={scenario !== 'finish'}><FinishScreen repository={repository} /></div>
-  </>;
+function CalculationDetails({ calculation, busy, onSave }: { calculation: Calculation; busy: boolean; onSave: (value: Pick<Calculation, 'clientName' | 'clientPhone' | 'objectAddress'>) => Promise<void> }) {
+  const [details, setDetails] = useState({ clientName: calculation.clientName ?? '', clientPhone: calculation.clientPhone ?? '', objectAddress: calculation.objectAddress ?? '' });
+  return <form onSubmit={(e) => { e.preventDefault(); void onSave(details); }}><fieldset disabled={busy}><legend>Клиент и объект</legend><div className="fields">
+    {([['clientName', 'Имя клиента'], ['clientPhone', 'Телефон'], ['objectAddress', 'Адрес объекта']] as const).map(([key, label]) => <label key={key}>{label}<input value={details[key]} onChange={(e) => setDetails({ ...details, [key]: e.target.value })} /></label>)}
+  </div></fieldset><button disabled={busy}>Сохранить данные клиента</button></form>;
 }

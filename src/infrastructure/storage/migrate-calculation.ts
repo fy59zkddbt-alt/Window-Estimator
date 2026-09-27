@@ -1,4 +1,6 @@
+import type { MeasurementEstimate } from '../../domain/measurement-estimate';
 import type { Calculation } from '../../domain/calculation';
+import { createCalculation, saveMeasurement } from '../../application/estimate/calculation-service';
 import type { UserConfiguration } from '../../domain/configuration/types';
 import type { Lamination, Material, OpeningType, HingeSide, Section } from '../../domain/measurements/shared';
 import { estimateWindow } from '../../application/estimate/estimate-window';
@@ -15,7 +17,7 @@ interface V1Record {
   };
 }
 
-export function migrateCalculationV1(record: V1Record): Calculation {
+export function migrateCalculationV1(record: V1Record): MeasurementEstimate {
   if (record.schemaVersion !== 1 || record.measurement.kind !== 'Window' || record.id !== record.measurement.id) throw new Error('Некорректная запись версии 1.');
   const old = record.measurement;
   const section = old.plane.sections[0];
@@ -28,4 +30,10 @@ export function migrateCalculationV1(record: V1Record): Calculation {
     widthMm: section.widthMm, heightMm: section.heightMm, material: old.material,
     profileId: old.profileId, lamination: old.lamination, sections: [migratedSection],
   }, record.configuration);
+}
+
+/** Every previous single-record estimate gets its own order, without merging unrelated demos. */
+export function migrateCalculationV2(record: MeasurementEstimate, migratedAt: string): Calculation {
+  if (record.schemaVersion !== 2 || record.id !== record.measurement.id) throw new Error('Некорректная запись версии 2.');
+  return saveMeasurement(createCalculation(record.id, migratedAt), record, migratedAt, 'add');
 }

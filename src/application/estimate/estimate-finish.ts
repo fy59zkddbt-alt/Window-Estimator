@@ -1,4 +1,4 @@
-import type { FinishCalculation } from '../../domain/calculation';
+import type { FinishEstimate } from '../../domain/measurement-estimate';
 import type { FinishConfiguration } from '../../domain/configuration/finish-types';
 import { copyFinishSizing, normalizeFinishMaterial } from '../../domain/configuration/normalize-finish';
 import { createWindowFinish, type WindowFinishInput } from '../../domain/measurements/window-finish/create-window-finish';
@@ -7,7 +7,7 @@ import { priceFinish } from '../../domain/pricing/finish-pricing';
 
 export type { WindowFinishInput } from '../../domain/measurements/window-finish/create-window-finish';
 
-export function estimateFinish(input: WindowFinishInput, configuration: FinishConfiguration): FinishCalculation {
+export function estimateFinish(input: WindowFinishInput, configuration: FinishConfiguration): FinishEstimate {
   const measurement = createWindowFinish(input);
   if (configuration.currency !== 'RUB') throw new Error('Поддерживается валюта RUB.');
   if (new Set(configuration.materials.map((item) => item.id)).size !== configuration.materials.length) throw new Error('ID материалов должны быть уникальными.');

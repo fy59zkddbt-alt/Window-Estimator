@@ -1,7 +1,9 @@
 import 'fake-indexeddb/auto';
+import Dexie from 'dexie';
+import { pack, firstEstimate } from './order-fixtures';
 import { describe, expect, it } from 'vitest';
 import { estimateFinish, type WindowFinishInput } from '../src/application/estimate/estimate-finish';
-import { isFinishCalculation } from '../src/application/estimate/calculation-repository';
+import { isFinishEstimate } from '../src/application/estimate/calculation-repository';
 import { demoFinishConfiguration as config } from '../src/domain/configuration/demo-finish-configuration';
 import { normalizeFinishMaterial } from '../src/domain/configuration/normalize-finish';
 import type { FinishMaterialConfiguration, FinishType } from '../src/domain/configuration/finish-types';
@@ -139,15 +141,15 @@ it.each(['simple', 'advanced'] as const)('persists %s finishing alongside a balc
   const result = estimateFinish({ ...input, selections }, config);
   const block = estimateWindow(blockInput, configuration);
   try {
-    await repository.save(block);
-    await repository.save(result);
+    await repository.save(pack(block));
+    await repository.save(pack(result));
     db.close();
     await db.open();
-    const loaded = await repository.get(result.id);
+    const loaded = firstEstimate((await repository.get(result.id))!);
     expect(loaded).toEqual(result);
-    if (!loaded || !isFinishCalculation(loaded)) throw new Error('Expected finish');
+    if (!loaded || !isFinishEstimate(loaded)) throw new Error('Expected finish');
     expect(estimateFinish(loaded.measurement, loaded.configuration)).toEqual(result);
-    expect(await repository.get(block.id)).toEqual(block);
+    expect(firstEstimate((await repository.get(block.id))!)).toEqual(block);
     expect(await db.calculations.count()).toBe(2);
   } finally { await db.delete(); }
 });
@@ -168,19 +170,22 @@ it('loads a legacy finish snapshot, recalculates per piece and drops obsolete si
     price: { ...current.price, totalMinor: 476000 },
   };
   try {
-    await db.table('calculations').put(legacy);
+    const old = new Dexie('finish-legacy-sizing');
+    old.version(2).stores({ calculations: 'id' });
+    await old.table('calculations').put(legacy);
+    old.close();
     db.close();
     await db.open();
-    const loaded = await repository.get(current.id);
-    if (!loaded || !isFinishCalculation(loaded)) throw new Error('Expected stored finish');
+    const loaded = firstEstimate((await repository.get(current.id))!);
+    if (!loaded || !isFinishEstimate(loaded)) throw new Error('Expected stored finish');
     const restored = estimateFinish(loaded.measurement, loaded.configuration);
     expect(restored).toEqual(current);
     expect(restored.price.totalMinor).toBe(506000);
     expect(restored.price.workPrice).toBeCloseTo(1760);
-    await repository.save(restored);
+    await repository.save(pack(restored));
     db.close();
     await db.open();
-    expect(await repository.get(current.id)).toEqual(current);
+    expect(firstEstimate((await repository.get(current.id))!)).toEqual(current);
     expect(await db.calculations.count()).toBe(1);
   } finally { await db.delete(); }
 });
