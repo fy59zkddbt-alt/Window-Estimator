@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { BalconyEstimate } from '../domain/measurement-estimate';
 import type { BalconyPlane, BalconySection } from '../domain/measurements/balcony/types';
-import { demoConfiguration } from '../domain/configuration/demo-configuration';
+import type { UserConfiguration } from '../domain/configuration/types';
 import { estimateBalcony, type BalconyInput } from '../application/estimate/estimate-balcony';
 import { balconyDraft, changeBalconyShape, changeBalconyMaterial, changePlaneSectionCount, initializePlaneWidth, distributePlane, changeBalconyOpening } from '../application/estimate/balcony-editor';
 import { WindowPreview } from './WindowPreview';
@@ -11,12 +11,12 @@ const money = (minor: number) => new Intl.NumberFormat('ru-RU', { style: 'curren
 function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
   return <label>{label}<input type="number" min="0" step="any" value={Number.isFinite(value) ? value : ''} onChange={(e) => onChange(e.target.value === '' ? NaN : Number(e.target.value))} /></label>;
 }
-export function BalconyScreen({ id, initial, onSave, onCancel }: { id: string; initial?: BalconyEstimate; onSave: (value: BalconyEstimate) => Promise<void>; onCancel: () => void }) {
+export function BalconyScreen({ id, initial, configuration: currentConfiguration, onSave, onCancel }: { id: string; initial?: BalconyEstimate; configuration: UserConfiguration; onSave: (value: BalconyEstimate) => Promise<void>; onCancel: () => void }) {
   const [input, setInput] = useState<BalconyInput>(() => initial?.measurement ?? balconyDraft(id));
   const [page, setPage] = useState(0);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const configuration = initial?.configuration ?? demoConfiguration;
+  const [configuration] = useState(initial?.configuration ?? currentConfiguration);
   let result: BalconyEstimate | undefined;
   let error = '';
   try { result = estimateBalcony(input, configuration); } catch (reason) { error = reason instanceof Error ? reason.message : 'Проверьте данные.'; }
@@ -29,7 +29,7 @@ export function BalconyScreen({ id, initial, onSave, onCancel }: { id: string; i
     try { await onSave(result); } catch (reason) { setSaveError(reason instanceof Error ? reason.message : 'Не удалось сохранить.'); }
     finally { setBusy(false); }
   }
-  return <main><h1>Балкон</h1><p className="muted">Демонстрационные тарифы. Вид из помещения; плоскости показаны отдельно.</p>
+  return <main><h1>Балкон</h1><p className="muted">Тарифы из снимка настроек замера. Вид из помещения; плоскости показаны отдельно. Монтаж автоматически не начисляется.</p>
     <div className="layout"><form onSubmit={(e) => e.preventDefault()}><fieldset disabled={busy}><legend>Помещение и конструкция</legend>
       <div className="fields"><label>Помещение<input value={input.room} onChange={(e) => setInput({ ...input, room: e.target.value })} /></label>
       <label>Название<input value={input.name} onChange={(e) => setInput({ ...input, name: e.target.value })} /></label>

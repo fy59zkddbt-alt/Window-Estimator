@@ -140,6 +140,14 @@ Geometry не зависит от pricing. Pricing получает площад
 - estimateCalculation содержит discountMode, discountAmountMinor, finalTotalMinor, fixedFinalPriceConfirmation, fixedFinalPriceMinor, canConfirmFixedPrice и isFinalized. При pending обе итоговые денежные величины discountAmountMinor/finalTotalMinor равны null, isFinalized=false. Никогда не трактовать null как ноль или готовую цену.
 - Старые v3 без discount нормализуются в none без перезаписи при чтении. Версия IndexedDB остаётся v3. Подтверждение и снимок subtotal сохраняются вместе с Calculation. UI только вызывает application и показывает результат; browser confirm/alert не используется.
 
+## CalculatorSettings
+
+- `CalculatorSettings` schemaVersion=1 содержит `glazing` (RUB, profiles, hardware) и `finish` (RUB, materials). Defaults создаются отдельно из демонстрационных тарифов и всегда копируются.
+- Пользователь редактирует тарифы на экране настроек. Новый редактор захватывает независимый снимок текущих настроек; существующий замер и его копия используют сохранённую configuration. Смена глобальных настроек не переоценивает расчёты.
+- Для каждого material остаётся минимум один профиль и совместимая фурнитура; для slope/sill — минимум один материал. ID генерируются UI, не редактируются. Проценты надбавок могут превышать 100.
+- installationRatePerM2 обязательна в Settings, но необязательна в исторических снимках. Пока это справочная ставка: монтаж автоматически не начисляется, UI явно сообщает об этом. Формула priceGlazing не изменена.
+- IndexedDB остаётся v3. JSON настроек хранится отдельной записью `calculatorSettings` в существующей таблице settings. Отсутствие записи даёт defaults без записи при чтении. Невалидная запись вызывает ошибку и не перезаписывается. Restore defaults меняет форму и применяется явным сохранением.
+
 ## Команды проверок
 
 Node.js >= 22.12; пакетный менеджер pnpm, lockfile обязателен.

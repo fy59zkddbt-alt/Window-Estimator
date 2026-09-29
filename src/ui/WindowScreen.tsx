@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { WindowEstimate } from '../domain/measurement-estimate';
-import { demoConfiguration } from '../domain/configuration/demo-configuration';
 import type { UserConfiguration } from '../domain/configuration/types';
 import type { HingeSide, Lamination, Material, OpeningType, OpeningElement } from '../domain/measurements/shared';
 import type { WindowType } from '../domain/measurements/window/types';
@@ -9,30 +8,22 @@ import { createEqualSections, toWindowInput, createEditorState, changeWindowType
 
 
 import { WindowPreview } from './WindowPreview';
-import { WindowDimensions, fieldValue } from './WindowDimensions';
+import { WindowDimensions } from './WindowDimensions';
 import './styles.css';
 import { AdditionalWorksEditor } from './AdditionalWorksEditor';
 
 
 const money = (value: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(value);
-const numeric = (value: string) => value === '' ? NaN : Number(value);
 const initialInput: WindowInput = {
   id: '', room: 'Кухня', name: 'Окно 1', windowType: 'single', widthMm: 1000, heightMm: 1500,
   material: 'pvc', profileId: 'pvc', lamination: 'none', sections: createEqualSections('single', 1000),
 };
-const rateFields = [
-  ['basePricePerM2', 'Базовая цена, ₽/м²'], ['activityPercent', 'Активная створка, %'],
-  ['laminateOneSidePercent', 'Ламинация с одной стороны, %'],
-  ['laminateTwoSidesPercent', 'Ламинация с двух сторон, %'], ['productMarkupPercent', 'Наценка изделия, %'],
-] as const;
-
-export function WindowScreen({ id, initial, onSave, onCancel }: { id: string; initial?: WindowEstimate; onSave: (result: WindowEstimate) => Promise<void>; onCancel: () => void }) {
-  const [editor, setEditor] = useState(() => createEditorState(initial ? toWindowInput(initial.measurement) : { ...initialInput, id }));
+export function WindowScreen({ id, initial, configuration: currentConfiguration, onSave, onCancel }: { id: string; initial?: WindowEstimate; configuration: UserConfiguration; onSave: (result: WindowEstimate) => Promise<void>; onCancel: () => void }) {
+  const [configuration] = useState(initial?.configuration ?? currentConfiguration);
+  const [editor, setEditor] = useState(() => createEditorState(initial ? toWindowInput(initial.measurement) : { ...initialInput, id, profileId: configuration.profiles.find((item) => item.material === 'pvc')?.id ?? '' }));
   const input = editor.input;
-  const [configuration, setConfiguration] = useState<UserConfiguration>(initial?.configuration ?? demoConfiguration);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  const profile = configuration.profiles.find((item) => item.id === input.profileId);
   const hardware = configuration.hardware.filter((item) => item.material === input.material);
   let result: WindowEstimate | undefined;
   let error = '';
@@ -63,10 +54,6 @@ export function WindowScreen({ id, initial, onSave, onCancel }: { id: string; in
     if (input.windowType === 'balconyBlock') update({ ...input, ...common, door: input.door.openingType === 'fixed' ? input.door : { ...input.door, hardwareId: compatibleHardware } });
     else update({ ...input, ...common });
   }
-  function changeRate(key: typeof rateFields[number][0], value: string) {
-    setConfiguration({ ...configuration, profiles: configuration.profiles.map((item) => item.id === input.profileId ? { ...item, [key]: numeric(value) } : item) });
-    setMessage('');
-  }
   async function save() {
     if (!result) return;
     setBusy(true);
@@ -81,7 +68,7 @@ export function WindowScreen({ id, initial, onSave, onCancel }: { id: string; in
 
   return <main>
     <header><p className="eyebrow">ЗАМЕР → РАСЧЁТ → СМЕТА</p><h1>Window Estimator</h1><p>Окно · базовый оконный замер</p></header>
-    <p className="notice">Демонстрационные тарифы. Стоимость только остекления, без монтажа и дополнительных работ.</p>
+    <p className="notice">Тарифы взяты из снимка настроек замера. Монтаж автоматически не начисляется; дополнительные работы добавляются отдельно.</p>
     <div className="layout"><form onSubmit={(event) => event.preventDefault()}>
       <fieldset disabled={busy}><legend>1. Помещение и тип окна</legend><div className="fields">
         <label>Помещение<input required value={input.room} onChange={(e) => edit({ room: e.target.value })} /></label>
@@ -101,7 +88,6 @@ export function WindowScreen({ id, initial, onSave, onCancel }: { id: string; in
         {openingItems.map(({ element, label }) => element.openingType !== 'fixed' && <label key={element.id}>{label}: фурнитура<select aria-label={`${label}: фурнитура`} value={element.hardwareId} onChange={(e) => editOpening({ ...element, hardwareId: e.target.value })}><option value="">Выберите фурнитуру</option>{hardware.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>)}
       </div><p className="muted">У глухих секций фурнитуры нет. Отдельная надбавка за фурнитуру не начисляется.</p></fieldset>
       <fieldset disabled={busy}><legend>{firstOpeningStep + 3}. Ламинация</legend><label>Ламинация<select aria-label="Ламинация" value={input.lamination} onChange={(e) => edit({ lamination: e.target.value as Lamination })}><option value="none">Нет</option><option value="one_side">Одна сторона</option><option value="two_sides">Две стороны</option></select></label></fieldset>
-      <details><summary>Демонстрационные тарифы профиля</summary><fieldset disabled={busy}><div className="fields">{profile && rateFields.map(([key, label]) => <label key={key}>{label}<input type="number" min="0" step="any" required value={fieldValue(profile[key])} onChange={(e) => changeRate(key, e.target.value)} /></label>)}</div></fieldset></details>
       <AdditionalWorksEditor works={input.additionalWorks ?? []} onChange={(additionalWorks) => update({ ...input, additionalWorks })} disabled={busy} />
     </form><aside>
       <h2>Технический эскиз</h2>

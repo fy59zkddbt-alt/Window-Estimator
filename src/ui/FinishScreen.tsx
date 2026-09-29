@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import type { FinishEstimate } from '../domain/measurement-estimate';
 import type { FinishConfiguration, FinishType } from '../domain/configuration/finish-types';
-import { demoFinishConfiguration } from '../domain/configuration/demo-finish-configuration';
 import { estimateFinish, type WindowFinishInput } from '../application/estimate/estimate-finish';
 
-import { FinishMaterialEditor, FinishNumber } from './FinishMaterialEditor';
+import { FinishNumber } from './FinishMaterialEditor';
 import { AdditionalWorksEditor } from './AdditionalWorksEditor';
 
 
@@ -13,11 +12,13 @@ const parts = { top: 'Верх', left: 'Левая сторона', right: 'Пр
 const amount = (value: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(value);
 const length = (value: number) => value.toLocaleString('ru-RU', { maximumFractionDigits: 6 });
 
-export function FinishScreen({ id, initial, onSave, onCancel }: { id: string; initial?: FinishEstimate; onSave: (result: FinishEstimate) => Promise<void>; onCancel: () => void }) {
+export function FinishScreen({ id, initial, configuration: currentConfiguration, onSave, onCancel }: { id: string; initial?: FinishEstimate; configuration: FinishConfiguration; onSave: (result: FinishEstimate) => Promise<void>; onCancel: () => void }) {
+  const [configuration] = useState(initial?.configuration ?? currentConfiguration);
+  const slopeId = configuration.materials.find((item) => item.finishType === 'slope')?.id ?? '';
+  const sillId = configuration.materials.find((item) => item.finishType === 'sill')?.id ?? '';
   const [input, setInput] = useState<WindowFinishInput>(initial?.measurement ?? { id, room: 'Кухня', name: 'Отделка окна 1', widthMm: 1400, heightMm: 1500, depthMm: 250,
-    selections: [{ finishType: 'slope', materialId: 'slope-simple' }, { finishType: 'sill', materialId: 'sill-simple' }] });
-  const [chosenIds, setChosenIds] = useState({ slope: initial?.measurement.selections.find((s) => s.finishType === 'slope')?.materialId ?? 'slope-simple', sill: initial?.measurement.selections.find((s) => s.finishType === 'sill')?.materialId ?? 'sill-simple' });
-  const [configuration, setConfiguration] = useState<FinishConfiguration>(initial?.configuration ?? demoFinishConfiguration);
+    selections: [{ finishType: 'slope', materialId: slopeId }, { finishType: 'sill', materialId: sillId }] });
+  const [chosenIds, setChosenIds] = useState({ slope: initial?.measurement.selections.find((s) => s.finishType === 'slope')?.materialId ?? slopeId, sill: initial?.measurement.selections.find((s) => s.finishType === 'sill')?.materialId ?? sillId });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   let result: FinishEstimate | undefined;
@@ -37,7 +38,7 @@ export function FinishScreen({ id, initial, onSave, onCancel }: { id: string; in
   }
   return <main>
     <header><p className="eyebrow">ОТДЕЛКА ОКНА</p><h1>Откосы и подоконник</h1><p>Самостоятельный замер отделки</p></header>
-    <p className="notice">Демонстрационные материалы и тарифы. Припуски и закупочное округление влияют только на материал, работа считается по установленной длине.</p>
+    <p className="notice">Материалы и тарифы из снимка настроек замера. Припуски и закупочное округление влияют только на материал, работа считается по установленной длине.</p>
     <div className="layout"><form onSubmit={(event) => event.preventDefault()}>
       <fieldset disabled={busy}><legend>Помещение и размеры</legend><div className="fields">
         <label>Помещение<input required value={input.room} onChange={(event) => edit({ room: event.target.value })} /></label>
@@ -48,14 +49,12 @@ export function FinishScreen({ id, initial, onSave, onCancel }: { id: string; in
       </div></fieldset>
       <fieldset disabled={busy}><legend>Что требуется</legend><div className="fields">{(['slope', 'sill'] as const).map((type) => <label className="checkbox" key={type}><input type="checkbox" checked={input.selections.some((selection) => selection.finishType === type)} onChange={(event) => toggle(type, event.target.checked)} />{labels[type]}</label>)}</div></fieldset>
       {input.selections.map((selection) => {
-        const material = configuration.materials.find((item) => item.id === selection.materialId);
         return <fieldset disabled={busy} key={selection.finishType}><legend>{labels[selection.finishType]}: материал и работа</legend>
           <label>Материал — {labels[selection.finishType]}<select aria-label={`Материал — ${labels[selection.finishType]}`} value={selection.materialId} onChange={(event) => {
             const materialId = event.target.value;
             setChosenIds({ ...chosenIds, [selection.finishType]: materialId });
             edit({ selections: input.selections.map((item) => item.finishType === selection.finishType ? { ...item, materialId } : item) });
           }}>{configuration.materials.filter((item) => item.finishType === selection.finishType).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-          {material && <FinishMaterialEditor material={material} onChange={(updated) => { setConfiguration({ ...configuration, materials: configuration.materials.map((item) => item.id === updated.id ? updated : item) }); setMessage(''); }} />}
         </fieldset>;
       })}
       <AdditionalWorksEditor works={input.additionalWorks ?? []} onChange={(additionalWorks) => edit({ additionalWorks })} disabled={busy} />

@@ -10,12 +10,16 @@ import './styles.css';
 import { AdditionalWorksList, OrderWorksEditor } from './AdditionalWorksEditor';
 import { DiscountEditor } from './DiscountEditor';
 import { updateCalculationDiscount, confirmFixedFinalPrice, resetCalculationDiscount } from '../application/estimate/calculation-service';
+import { createSettingsSnapshot, type CalculatorSettings, type CalculatorSettingsRepository } from '../application/settings/calculator-settings';
+import { SettingsScreen } from './SettingsScreen';
 
-type Editor = { id: string; kind: 'Window' | 'WindowFinish' | 'Balcony'; initial?: MeasurementEstimate };
+type Editor = { id: string; kind: 'Window' | 'WindowFinish' | 'Balcony'; initial?: MeasurementEstimate; snapshot?: ReturnType<typeof createSettingsSnapshot> };
 const now = () => new Date().toISOString();
 const money = (minor: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(minor / 100);
 
-export function App({ repository }: { repository: CalculationRepository }) {
+export function App({ repository, settingsRepository }: { repository: CalculationRepository; settingsRepository: CalculatorSettingsRepository }) {
+  const [settings, setSettings] = useState<CalculatorSettings>();
+  const [showSettings, setShowSettings] = useState(false);
   const [calculations, setCalculations] = useState<Calculation[]>([]);
   const [current, setCurrent] = useState<Calculation>();
   const [screen, setScreen] = useState<'composition' | 'choose' | 'estimate'>('composition');
@@ -29,12 +33,14 @@ export function App({ repository }: { repository: CalculationRepository }) {
       try {
         const items = await repository.list();
         const activeId = await repository.getActiveId();
+        const loadedSettings = await settingsRepository.load();
+        if (!cancelled) setSettings(loadedSettings);
         if (!cancelled) { setCalculations(items); setCurrent(items.find((item) => item.id === activeId) ?? items[0]); setReady(true); }
       } catch { if (!cancelled) setError('Не удалось открыть хранилище. Данные не удалены. Перезагрузите страницу после устранения ошибки.'); }
       finally { if (!cancelled) setBusy(false); }
     })();
     return () => { cancelled = true; };
-  }, [repository]);
+  }, [repository, settingsRepository]);
   async function persist(value: Calculation) {
     await repository.save(value);
     setCurrent(value);
@@ -51,18 +57,26 @@ export function App({ repository }: { repository: CalculationRepository }) {
     await persist(saveMeasurement(current, result, now(), editor.initial ? 'edit' : 'add'));
     setEditor(undefined); setScreen('composition');
   }
+  function openNewEditor(kind: Editor['kind']) {
+    if (settings) setEditor({ id: crypto.randomUUID(), kind, snapshot: createSettingsSnapshot(settings) });
+  }
+  if (showSettings && settings) return <SettingsScreen initial={settings} onClose={() => setShowSettings(false)} onSave={async (value) => {
+    await settingsRepository.save(value); setSettings(value);
+  }} />;
   if (editor) {
     const initial = editor.initial;
-    if (editor.kind === 'Balcony') return <BalconyScreen key={editor.id} id={editor.id} {...(initial && isBalconyEstimate(initial) ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
+    const snapshot = editor.snapshot ?? createSettingsSnapshot(settings!);
+    if (editor.kind === 'Balcony') return <BalconyScreen key={editor.id} id={editor.id} configuration={snapshot.glazing} {...(initial && isBalconyEstimate(initial) ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
     return editor.kind === 'Window'
-      ? <WindowScreen key={editor.id} id={editor.id} {...(initial && isWindowEstimate(initial) ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />
-      : <FinishScreen key={editor.id} id={editor.id} {...(initial && isFinishEstimate(initial) ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
+      ? <WindowScreen key={editor.id} id={editor.id} configuration={snapshot.glazing} {...(initial && isWindowEstimate(initial) ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />
+      : <FinishScreen key={editor.id} id={editor.id} configuration={snapshot.finish} {...(initial && isFinishEstimate(initial) ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
   }
   const estimate = current ? estimateCalculation(current) : undefined;
   return <main>
     <header><p className="eyebrow">ЗАМЕР → РАСЧЁТ → СМЕТА</p><h1>Window Estimator</h1></header>
     <fieldset disabled={busy || !ready}>
       <div className="calculation-actions">
+        <button onClick={() => setShowSettings(true)}>Настройки калькулятора</button>
         <button onClick={() => void action(async () => { await persist(createCalculation(crypto.randomUUID(), now())); setScreen('composition'); })}>Новый расчёт</button>
         <label>Сохранённые расчёты<select aria-label="Сохранённые расчёты" value={current?.id ?? ''} onChange={(event) => {
           const id = event.target.value;
@@ -76,9 +90,9 @@ export function App({ repository }: { repository: CalculationRepository }) {
     {current && estimate && <>
       <CalculationDetails key={`${current.id}:${current.updatedAt}`} calculation={current} busy={busy} onSave={(details) => action(() => persist(updateCalculationDetails(current, details, now())))} />
       {screen === 'choose' ? <section><h2>Добавить замер</h2><div className="calculation-actions">
-        <button disabled={busy} onClick={() => setEditor({ id: crypto.randomUUID(), kind: 'Window' })}>Окно</button>
-        <button disabled={busy} onClick={() => setEditor({ id: crypto.randomUUID(), kind: 'Balcony' })}>Балкон</button>
-        <button disabled={busy} onClick={() => setEditor({ id: crypto.randomUUID(), kind: 'WindowFinish' })}>Отделка окна</button>
+        <button disabled={busy} onClick={() => openNewEditor('Window')}>Окно</button>
+        <button disabled={busy} onClick={() => openNewEditor('Balcony')}>Балкон</button>
+        <button disabled={busy} onClick={() => openNewEditor('WindowFinish')}>Отделка окна</button>
         <button disabled={busy} onClick={() => setScreen('composition')}>К составу расчёта</button>
       </div></section> : <>
         <h2>{screen === 'estimate' ? 'Смета' : 'Состав расчёта'}</h2>
