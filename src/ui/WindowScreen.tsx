@@ -11,6 +11,7 @@ import { createEqualSections, toWindowInput, createEditorState, changeWindowType
 import { WindowPreview } from './WindowPreview';
 import { WindowDimensions, fieldValue } from './WindowDimensions';
 import './styles.css';
+import { AdditionalWorksEditor } from './AdditionalWorksEditor';
 
 
 const money = (value: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(value);
@@ -101,11 +102,13 @@ export function WindowScreen({ id, initial, onSave, onCancel }: { id: string; in
       </div><p className="muted">У глухих секций фурнитуры нет. Отдельная надбавка за фурнитуру не начисляется.</p></fieldset>
       <fieldset disabled={busy}><legend>{firstOpeningStep + 3}. Ламинация</legend><label>Ламинация<select aria-label="Ламинация" value={input.lamination} onChange={(e) => edit({ lamination: e.target.value as Lamination })}><option value="none">Нет</option><option value="one_side">Одна сторона</option><option value="two_sides">Две стороны</option></select></label></fieldset>
       <details><summary>Демонстрационные тарифы профиля</summary><fieldset disabled={busy}><div className="fields">{profile && rateFields.map(([key, label]) => <label key={key}>{label}<input type="number" min="0" step="any" required value={fieldValue(profile[key])} onChange={(e) => changeRate(key, e.target.value)} /></label>)}</div></fieldset></details>
+      <AdditionalWorksEditor works={input.additionalWorks ?? []} onChange={(additionalWorks) => update({ ...input, additionalWorks })} disabled={busy} />
     </form><aside>
       <h2>Технический эскиз</h2>
       {result ? <WindowPreview geometry={result.geometry} /> : <p className="validation" role="alert">{error}</p>}
       <h2>Текущая цена</h2>{result ? <>
-        <p className="total">{money(result.price.totalMinor / 100)}</p>
+        <p className="total">{money(result.measurementTotalMinor / 100)}</p>
+        <p>Остекление: {money(result.basePriceMinor / 100)}; дополнительные работы: {money(result.additionalWorksTotalMinor / 100)}.</p>
         <dl>{[
           ['Общая площадь', `${result.geometry.totalAreaM2.toLocaleString('ru-RU', { maximumFractionDigits: 6 })} м²`],
           ['Активная площадь', `${result.geometry.activeAreaM2.toLocaleString('ru-RU', { maximumFractionDigits: 6 })} м²`],
@@ -120,4 +123,3 @@ export function WindowScreen({ id, initial, onSave, onCancel }: { id: string; in
     </aside></div>
   </main>;
 }
-

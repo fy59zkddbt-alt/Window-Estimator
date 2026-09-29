@@ -116,6 +116,6 @@ describe('balconyBlock inside WindowMeasurement', () => {
     const door = { id: 'door', openingType: 'turn' as const, hingeSide: 'right' as const, hardwareId: 'hardware' };
     const measurement = createWindow({ ...blockInput, door });
     door.hardwareId = 'changed';
-    expect(toWindowInput(measurement)).toEqual({ ...blockInput, door: { ...door, hardwareId: 'hardware' } });
+    expect(toWindowInput(measurement)).toEqual({ ...blockInput, additionalWorks: [], door: { ...door, hardwareId: 'hardware' } });
   });
 });

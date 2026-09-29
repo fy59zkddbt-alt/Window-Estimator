@@ -47,8 +47,8 @@ describe('block editor draft preservation', () => {
     const initial = createEditorState({ ...input, sections: [active(1000)] });
     const blockState: WindowEditorState = { ...changeWindowType(initial, 'balconyBlock'), input: { ...blockInput, id: input.id, room: input.room, name: input.name } };
     const rectangular = changeWindowType(blockState, 'single');
-    expect(rectangular.input).toEqual(initial.input);
-    expect(changeWindowType(rectangular, 'balconyBlock').input).toEqual(blockState.input);
+    expect(rectangular.input).toEqual({ ...initial.input, additionalWorks: [] });
+    expect(changeWindowType(rectangular, 'balconyBlock').input).toEqual({ ...blockState.input, additionalWorks: [] });
   });
   it('new second section never collides with an existing id loaded from storage', () => {
     const state = changeBlockWindowCount(createEditorState({ ...blockInput, sections: [fixed(1400, 'block-window-2')] }), 2);

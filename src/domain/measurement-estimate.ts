@@ -6,8 +6,15 @@ import type { GlazingPrice } from './pricing/glazing-pricing';
 import type { FinishConfiguration, NormalizedFinishMaterial } from './configuration/finish-types';
 import type { FinishGeometry } from './geometry/finish-geometry';
 import type { FinishPrice } from './pricing/finish-pricing';
+import type { BalconyMeasurement } from './measurements/balcony/types';
+import type { BalconyGeometry } from './geometry/balcony-geometry';
 
-export interface WindowEstimate {
+export interface MeasurementTotals {
+  basePriceMinor: number;
+  additionalWorksTotalMinor: number;
+  measurementTotalMinor: number;
+}
+export interface WindowEstimate extends MeasurementTotals {
   id: string;
   schemaVersion: 2;
   measurement: WindowMeasurement;
@@ -16,7 +23,7 @@ export interface WindowEstimate {
   price: GlazingPrice;
 }
 
-export interface FinishEstimate {
+export interface FinishEstimate extends MeasurementTotals {
   id: string;
   schemaVersion: 2;
   measurement: WindowFinishMeasurement;
@@ -26,4 +33,12 @@ export interface FinishEstimate {
   price: FinishPrice;
 }
 
-export type MeasurementEstimate = WindowEstimate | FinishEstimate;
+export interface BalconyEstimate extends MeasurementTotals {
+  id: string;
+  schemaVersion: 2;
+  measurement: BalconyMeasurement;
+  configuration: UserConfiguration;
+  geometry: BalconyGeometry;
+  price: GlazingPrice;
+}
+export type MeasurementEstimate = WindowEstimate | FinishEstimate | BalconyEstimate;

@@ -4,6 +4,7 @@ import { copyFinishSizing, normalizeFinishMaterial } from '../../domain/configur
 import { createWindowFinish, type WindowFinishInput } from '../../domain/measurements/window-finish/create-window-finish';
 import { getFinishGeometry } from '../../domain/geometry/finish-geometry';
 import { priceFinish } from '../../domain/pricing/finish-pricing';
+import { measurementTotals } from './additional-works';
 
 export type { WindowFinishInput } from '../../domain/measurements/window-finish/create-window-finish';
 
@@ -18,7 +19,7 @@ export function estimateFinish(input: WindowFinishInput, configuration: FinishCo
   });
   const geometry = getFinishGeometry(measurement, normalizedMaterials.map((item) => ({ finishType: item.finishType, materialId: item.id, sizing: item.sizing })));
   const price = priceFinish(geometry, normalizedMaterials);
-  return { id: measurement.id, schemaVersion: 2, measurement, normalizedMaterials, geometry, price,
+  return { id: measurement.id, schemaVersion: 2, measurement, normalizedMaterials, geometry, price, ...measurementTotals(price.totalMinor, measurement.additionalWorks),
     configuration: { currency: configuration.currency, materials: configuration.materials.map((item) => ({ ...item, sizing: copyFinishSizing(item.sizing),
       pricing: item.pricing.mode === 'simple'
         ? { ...item.pricing, ...(item.pricing.depthBands ? { depthBands: item.pricing.depthBands.map((band) => ({ ...band })) } : {}) }

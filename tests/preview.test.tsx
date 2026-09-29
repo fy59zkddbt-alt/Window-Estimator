@@ -3,6 +3,25 @@ import { expect, it } from 'vitest';
 import { WindowPreview } from '../src/ui/WindowPreview';
 import { estimateWindow } from '../src/application/estimate/estimate-window';
 import { active, fixed, input, configuration, blockInput } from './fixtures';
+import { estimateBalcony } from '../src/application/estimate/estimate-balcony';
+import { demoConfiguration } from '../src/domain/configuration/demo-configuration';
+
+it('renders balcony tiers, sandwich and sliding with real proportions using the common renderer', () => {
+  const result = estimateBalcony({ id: 'b', room: 'Балкон', name: 'Балкон', balconyType: 'straight', material: 'aluminium', profileId: 'aluminium', lamination: 'none', planes: [{
+    id: 'facade', name: 'Фасад', position: 'facade', widthMm: 1500, heightMm: 2200, sectionCount: 2,
+    levels: { mode: 'twoLevel', splitHeightMm: 700, lowerFill: 'sandwich' },
+    sections: [{ id: 'a', widthMm: 500, openingType: 'sliding' }, { id: 'b', widthMm: 1000, openingType: 'fixed' }],
+  }] }, demoConfiguration);
+  const plane = result.geometry.planes[0]!;
+  const markup = renderToStaticMarkup(<WindowPreview geometry={plane} />);
+  expect(markup).toContain('viewBox="0 0 1500 2200"');
+  expect(markup).toContain('preserveAspectRatio="xMidYMid meet"');
+  expect(markup).toContain('x="500" y="1500" width="1000" height="700"');
+  expect(markup).toContain('glazing section sandwich');
+  expect(markup).toContain('opening-symbol sliding');
+  expect(markup).toContain('points="0,1500 1500,1500"');
+  expect(markup.match(/<rect /g)).toHaveLength(4);
+});
 
 it('renders domain rectangles with a uniform SVG scale, including unequal widths and transom', () => {
   const { geometry } = estimateWindow({ ...input, windowType: 'triple', widthMm: 2400, heightMm: 1800,

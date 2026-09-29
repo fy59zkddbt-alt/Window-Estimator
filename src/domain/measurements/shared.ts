@@ -9,6 +9,8 @@ export type Opening =
 
 export type OpeningElement = { id: string } & Opening;
 /** Window section: its height is derived from the window, never duplicated here. */
-export type Section = OpeningElement & { widthMm: number };
-export interface GlazingPlane { id: string; sections: readonly Section[] }
+export type SlidingOpening = { openingType: 'sliding'; hingeSide?: never; hardwareId?: never };
+export type GlazingOpening = Opening | SlidingOpening;
+export type Section<O extends GlazingOpening = Opening> = { id: string; widthMm: number } & O;
+export interface GlazingPlane<S extends Section<GlazingOpening> = Section> { id: string; sections: readonly S[] }
 export interface MeasurementIdentity { id: string; room: string; name: string }

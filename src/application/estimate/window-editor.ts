@@ -46,7 +46,7 @@ export function changeWindowType(state: WindowEditorState, windowType: WindowTyp
   const current = state.input;
   if (current.windowType === windowType) return state;
   const { id, room, name, material, profileId, lamination } = current;
-  const common = { id, room, name, material, profileId, lamination };
+  const common = { id, room, name, material, profileId, lamination, additionalWorks: current.additionalWorks ?? [] };
   if (windowType === 'balconyBlock') {
     if (current.windowType === 'balconyBlock') return state;
     const input: BlockDraft = state.block ? { ...state.block, ...common } : {

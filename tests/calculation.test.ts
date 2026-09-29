@@ -57,6 +57,7 @@ it.each(['Window', 'WindowFinish'])('copies %s with new ID and no shared nested 
     const source = copy.measurements[0]!;
     if (source.kind === 'Window') expect(source.plane.sections[0]!.widthMm).toBe(input.sections[0]!.widthMm);
   } else {
+    if (copied.kind !== 'WindowFinish') throw new Error('Expected finish fixture');
     copied.selections[0]!.materialId = 'changed';
     const source = copy.measurements[1]!;
     if (source.kind === 'WindowFinish') expect(source.selections[0]!.materialId).toBe('slope-simple');

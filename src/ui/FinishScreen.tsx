@@ -5,6 +5,7 @@ import { demoFinishConfiguration } from '../domain/configuration/demo-finish-con
 import { estimateFinish, type WindowFinishInput } from '../application/estimate/estimate-finish';
 
 import { FinishMaterialEditor, FinishNumber } from './FinishMaterialEditor';
+import { AdditionalWorksEditor } from './AdditionalWorksEditor';
 
 
 const labels = { slope: 'Откосы', sill: 'Подоконник' };
@@ -57,8 +58,10 @@ export function FinishScreen({ id, initial, onSave, onCancel }: { id: string; in
           {material && <FinishMaterialEditor material={material} onChange={(updated) => { setConfiguration({ ...configuration, materials: configuration.materials.map((item) => item.id === updated.id ? updated : item) }); setMessage(''); }} />}
         </fieldset>;
       })}
+      <AdditionalWorksEditor works={input.additionalWorks ?? []} onChange={(additionalWorks) => edit({ additionalWorks })} disabled={busy} />
     </form><aside><h2>Расчёт отделки</h2>{result ? <>
-      <p className="total">{amount(result.price.totalMinor / 100)}</p>
+      <p className="total">{amount(result.measurementTotalMinor / 100)}</p>
+      <p>Отделка: {amount(result.basePriceMinor / 100)}; дополнительные работы: {amount(result.additionalWorksTotalMinor / 100)}.</p>
       <dl>{[
         ['Длина откосов', `${length(result.geometry.slopeLengthM)} м`], ['Длина подоконника', `${length(result.geometry.sillLengthM)} м`],
         ['База материала¹', amount(result.price.materialPurchaseCost)], ['Наценка на материалы', amount(result.price.materialMarkupAmount)],

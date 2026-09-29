@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { Calculation } from '../domain/calculation';
 import type { MeasurementEstimate } from '../domain/measurement-estimate';
-import { type CalculationRepository, isWindowEstimate } from '../application/estimate/calculation-repository';
-import { createCalculation, copyMeasurement, deleteMeasurement, estimateCalculation, saveMeasurement, updateCalculationDetails } from '../application/estimate/calculation-service';
+import { type CalculationRepository, isWindowEstimate, isFinishEstimate, isBalconyEstimate } from '../application/estimate/calculation-repository';
+import { createCalculation, copyMeasurement, deleteMeasurement, estimateCalculation, saveMeasurement, updateCalculationDetails, updateOrderAdditionalWorks } from '../application/estimate/calculation-service';
 import { WindowScreen } from './WindowScreen';
 import { FinishScreen } from './FinishScreen';
+import { BalconyScreen } from './BalconyScreen';
 import './styles.css';
+import { AdditionalWorksList, OrderWorksEditor } from './AdditionalWorksEditor';
+import { DiscountEditor } from './DiscountEditor';
+import { updateCalculationDiscount, confirmFixedFinalPrice, resetCalculationDiscount } from '../application/estimate/calculation-service';
 
-type Editor = { id: string; kind: 'Window' | 'WindowFinish'; initial?: MeasurementEstimate };
+type Editor = { id: string; kind: 'Window' | 'WindowFinish' | 'Balcony'; initial?: MeasurementEstimate };
 const now = () => new Date().toISOString();
 const money = (minor: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(minor / 100);
 
@@ -49,9 +53,10 @@ export function App({ repository }: { repository: CalculationRepository }) {
   }
   if (editor) {
     const initial = editor.initial;
+    if (editor.kind === 'Balcony') return <BalconyScreen key={editor.id} id={editor.id} {...(initial && isBalconyEstimate(initial) ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
     return editor.kind === 'Window'
       ? <WindowScreen key={editor.id} id={editor.id} {...(initial && isWindowEstimate(initial) ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />
-      : <FinishScreen key={editor.id} id={editor.id} {...(initial && !isWindowEstimate(initial) ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
+      : <FinishScreen key={editor.id} id={editor.id} {...(initial && isFinishEstimate(initial) ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
   }
   const estimate = current ? estimateCalculation(current) : undefined;
   return <main>
@@ -67,11 +72,12 @@ export function App({ repository }: { repository: CalculationRepository }) {
     </fieldset>
     {busy && <p role="status">Сохранение / загрузка…</p>}
     {error && <p role="alert" className="validation">{error}</p>}
-    {!current && ready && <p>Создайте расчёт, затем добавьте окно или отделку окна.</p>}
+    {!current && ready && <p>Создайте расчёт, затем добавьте окно, балкон или отделку окна.</p>}
     {current && estimate && <>
       <CalculationDetails key={`${current.id}:${current.updatedAt}`} calculation={current} busy={busy} onSave={(details) => action(() => persist(updateCalculationDetails(current, details, now())))} />
       {screen === 'choose' ? <section><h2>Добавить замер</h2><div className="calculation-actions">
         <button disabled={busy} onClick={() => setEditor({ id: crypto.randomUUID(), kind: 'Window' })}>Окно</button>
+        <button disabled={busy} onClick={() => setEditor({ id: crypto.randomUUID(), kind: 'Balcony' })}>Балкон</button>
         <button disabled={busy} onClick={() => setEditor({ id: crypto.randomUUID(), kind: 'WindowFinish' })}>Отделка окна</button>
         <button disabled={busy} onClick={() => setScreen('composition')}>К составу расчёта</button>
       </div></section> : <>
@@ -79,16 +85,27 @@ export function App({ repository }: { repository: CalculationRepository }) {
         {estimate.lines.length === 0 && <p>В расчёте пока нет замеров.</p>}
         {estimate.lines.map((line) => <article className="measurement-card" key={line.id}>
           <h3>{line.name} · {line.room}</h3><p>{line.description}</p><p>{line.dimensions}</p><strong>{money(line.totalMinor)}</strong>
+          <p>Базовая стоимость: {money(line.result.basePriceMinor)}; допработы: {money(line.result.additionalWorksTotalMinor)}.</p>
+          <AdditionalWorksList works={line.result.measurement.additionalWorks} />
           {screen === 'composition' && <div className="calculation-actions">
             <button disabled={busy} onClick={() => setEditor({ id: line.id, kind: line.result.measurement.kind, initial: line.result })}>Изменить</button>
             <button disabled={busy} onClick={() => void action(() => persist(copyMeasurement(current, line.id, crypto.randomUUID(), now())))}>Копировать</button>
             <button disabled={busy} onClick={() => void action(() => persist(deleteMeasurement(current, line.id, now())))}>Удалить</button>
           </div>}
         </article>)}
-        <p className="total">Итого: {money(estimate.subtotalMinor)}</p>
+        <OrderWorksEditor key={`works:${current.id}:${current.updatedAt}`} works={current.orderAdditionalWorks} busy={busy} onSave={(works) => action(() => persist(updateOrderAdditionalWorks(current, works, now())))} />
+        <AdditionalWorksList works={current.orderAdditionalWorks} />
+        <p>Замеры: {money(estimate.measurementsSubtotalMinor)}; работы по заказу: {money(estimate.orderWorksTotalMinor)}.</p>
+        <p>Subtotal до скидки: {money(estimate.subtotalMinor)}</p>
+        {screen === 'estimate' && <DiscountEditor key={`discount:${current.id}:${current.updatedAt}`} discount={estimate.discount} subtotalMinor={estimate.subtotalMinor} busy={busy}
+          onApply={(input) => action(() => persist(updateCalculationDiscount(current, input, now())))}
+          onConfirm={() => action(() => persist(confirmFixedFinalPrice(current, now())))}
+          onReset={() => action(() => persist(resetCalculationDiscount(current, now())))} />}
+        {estimate.finalTotalMinor === null ? <p role="alert" className="validation">Итог не подтверждён. Прежняя фиксированная цена: {money(estimate.fixedFinalPriceMinor!)}. Подтвердите или сбросьте её на экране сметы.</p>
+          : <><p>Скидка: {money(estimate.discountAmountMinor!)}</p><p className="total">Итого: {money(estimate.finalTotalMinor)}</p></>}
         <div className="calculation-actions">
           <button disabled={busy} onClick={() => setScreen('choose')}>{estimate.lines.length ? 'Добавить ещё' : 'Добавить замер'}</button>
-          {screen === 'composition' ? <button disabled={busy || !estimate.lines.length} onClick={() => setScreen('estimate')}>Перейти к смете</button> : <button onClick={() => setScreen('composition')}>К составу расчёта</button>}
+          {screen === 'composition' ? <button disabled={busy} onClick={() => setScreen('estimate')}>Перейти к смете</button> : <button onClick={() => setScreen('composition')}>К составу расчёта</button>}
         </div>
       </>}
       <p className="muted">Замеры сохраняются в браузере после «Сохранить замер». Копирование и удаление сохраняются сразу. Незавершённый ввод в редакторе не сохраняется.</p>

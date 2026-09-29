@@ -1,7 +1,8 @@
 import type { OpeningElement, Section } from '../shared';
 import type { WindowMeasurement, RectangularWindowType } from './types';
+import { normalizeAdditionalWorks, type AdditionalWork } from '../../works/types';
 
-type InputOf<T> = T extends WindowMeasurement ? Omit<T, 'kind' | 'plane'> & { sections: readonly Section[] } : never;
+type InputOf<T> = T extends WindowMeasurement ? Omit<T, 'kind' | 'plane' | 'additionalWorks'> & { sections: readonly Section[]; additionalWorks?: readonly AdditionalWork[] } : never;
 export type WindowInput = InputOf<WindowMeasurement>;
 export type RectangularWindowInput = Exclude<WindowInput, { windowType: 'balconyBlock' }>;
 export type BalconyBlockInput = Extract<WindowInput, { windowType: 'balconyBlock' }>;
@@ -95,7 +96,7 @@ export function validateWindow(window: WindowMeasurement): void {
 export function createWindow(input: WindowInput): WindowMeasurement {
   const { sections, ...attributes } = input;
   const measurement: WindowMeasurement = {
-    ...attributes, kind: 'Window', room: input.room.trim(), name: input.name.trim(),
+    ...attributes, kind: 'Window', room: input.room.trim(), name: input.name.trim(), additionalWorks: normalizeAdditionalWorks(input.additionalWorks),
     plane: { id: `${input.id}:plane`, sections: sections.map((section) => ({ ...section })) },
   };
   if (measurement.windowType === 'balconyBlock') measurement.door = { ...measurement.door };

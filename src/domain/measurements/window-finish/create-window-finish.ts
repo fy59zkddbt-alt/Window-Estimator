@@ -1,6 +1,7 @@
 import type { FinishDimensions, WindowFinishMeasurement } from './types';
+import { normalizeAdditionalWorks, type AdditionalWork } from '../../works/types';
 
-export type WindowFinishInput = Omit<WindowFinishMeasurement, 'kind'>;
+export type WindowFinishInput = Omit<WindowFinishMeasurement, 'kind' | 'additionalWorks'> & { additionalWorks?: readonly AdditionalWork[] };
 
 export function validateFinishDimensions(dimensions: FinishDimensions): void {
   for (const value of [dimensions.widthMm, dimensions.heightMm, dimensions.depthMm]) {
@@ -15,5 +16,5 @@ export function createWindowFinish(input: WindowFinishInput): WindowFinishMeasur
   const types = input.selections.map((selection) => selection.finishType);
   if (new Set(types).size !== types.length || types.some((type) => !['slope', 'sill'].includes(type))) throw new Error('Тип отделки не должен повторяться и должен быть slope или sill.');
   if (input.selections.some((selection) => !selection.materialId.trim())) throw new Error('Выберите материал для каждого вида отделки.');
-  return { ...input, kind: 'WindowFinish', room: input.room.trim(), name: input.name.trim(), selections: input.selections.map((selection) => ({ ...selection })) };
+  return { ...input, kind: 'WindowFinish', additionalWorks: normalizeAdditionalWorks(input.additionalWorks), room: input.room.trim(), name: input.name.trim(), selections: input.selections.map((selection) => ({ ...selection })) };
 }
