@@ -11,4 +11,8 @@ const database = new EstimatorDatabase();
 const repository = new DexieCalculationRepository(database);
 const settingsRepository = new DexieCalculatorSettingsRepository(database);
 const documentSettingsRepository = new DexieDocumentSettingsRepository(database);
-createRoot(document.getElementById('root')!).render(<StrictMode><App repository={repository} settingsRepository={settingsRepository} documentSettingsRepository={documentSettingsRepository} /></StrictMode>);
+const renderProposalPdf: import('./application/documents/proposal-pdf').ProposalPdfRenderer = async (document) => {
+  const renderer = await import('./infrastructure/pdf/render-proposal-pdf');
+  return renderer.renderProposalPdf(document);
+};
+createRoot(document.getElementById('root')!).render(<StrictMode><App repository={repository} settingsRepository={settingsRepository} documentSettingsRepository={documentSettingsRepository} renderProposalPdf={renderProposalPdf} /></StrictMode>);

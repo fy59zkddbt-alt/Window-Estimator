@@ -14,12 +14,16 @@ import { createSettingsSnapshot, type CalculatorSettings, type CalculatorSetting
 import { SettingsScreen } from './SettingsScreen';
 import type { DocumentSettingsRepository } from '../application/settings/document-settings';
 import { DocumentSettingsScreen } from './DocumentSettingsScreen';
+import { createProposalDocument } from '../application/documents/create-proposal-document';
+import { proposalFilename, type ProposalPdfRenderer } from '../application/documents/proposal-pdf';
+import { canShareProposal, downloadProposal } from './proposal-file';
 
 type Editor = { id: string; kind: 'Window' | 'WindowFinish' | 'Balcony'; initial?: MeasurementEstimate; snapshot?: ReturnType<typeof createSettingsSnapshot> };
 const now = () => new Date().toISOString();
 const money = (minor: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(minor / 100);
 
-export function App({ repository, settingsRepository, documentSettingsRepository }: { repository: CalculationRepository; settingsRepository: CalculatorSettingsRepository; documentSettingsRepository: DocumentSettingsRepository }) {
+export function App({ repository, settingsRepository, documentSettingsRepository, renderProposalPdf }: { repository: CalculationRepository; settingsRepository: CalculatorSettingsRepository; documentSettingsRepository: DocumentSettingsRepository; renderProposalPdf: ProposalPdfRenderer }) {
+  const [proposalFile, setProposalFile] = useState<File>();
   const [showDocumentSettings, setShowDocumentSettings] = useState(false);
   const [settings, setSettings] = useState<CalculatorSettings>();
   const [showSettings, setShowSettings] = useState(false);
@@ -30,6 +34,7 @@ export function App({ repository, settingsRepository, documentSettingsRepository
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
+  useEffect(() => { setProposalFile(undefined); }, [current, screen, showDocumentSettings]);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -62,6 +67,15 @@ export function App({ repository, settingsRepository, documentSettingsRepository
   }
   function openNewEditor(kind: Editor['kind']) {
     if (settings) setEditor({ id: crypto.randomUUID(), kind, snapshot: createSettingsSnapshot(settings) });
+  }
+  async function generateProposal() {
+    if (!current) return;
+    setProposalFile(undefined);
+    const settings = await documentSettingsRepository.load();
+    const document = createProposalDocument(current, estimateCalculation(current), settings, { id: crypto.randomUUID(), generatedAt: now() });
+    const blob = await renderProposalPdf(document);
+    const file = new File([blob], proposalFilename(document), { type: 'application/pdf' });
+    setProposalFile(file); downloadProposal(file);
   }
   if (showDocumentSettings) return <DocumentSettingsScreen repository={documentSettingsRepository} onClose={() => setShowDocumentSettings(false)} />;
   if (showSettings && settings) return <SettingsScreen initial={settings} onClose={() => setShowSettings(false)} onSave={async (value) => {
@@ -124,8 +138,21 @@ export function App({ repository, settingsRepository, documentSettingsRepository
           : <><p>Скидка: {money(estimate.discountAmountMinor!)}</p><p className="total">Итого: {money(estimate.finalTotalMinor)}</p></>}
         <div className="calculation-actions">
           <button disabled={busy} onClick={() => setScreen('choose')}>{estimate.lines.length ? 'Добавить ещё' : 'Добавить замер'}</button>
-          {screen === 'composition' ? <button disabled={busy} onClick={() => setScreen('estimate')}>Перейти к смете</button> : <button onClick={() => setScreen('composition')}>К составу расчёта</button>}
+          {screen === 'composition' ? <button disabled={busy} onClick={() => setScreen('estimate')}>Перейти к смете</button> : <button disabled={busy} onClick={() => setScreen('composition')}>К составу расчёта</button>}
         </div>
+        {screen === 'estimate' && <section aria-label="Коммерческое предложение">
+          <button disabled={busy || !estimate.isFinalized || !estimate.lines.length} onClick={() => void action(generateProposal)}>Сформировать КП</button>
+          {proposalFile && <>
+            <p role="status">PDF создан: {proposalFile.name}</p>
+            <button disabled={busy} onClick={() => downloadProposal(proposalFile)}>Скачать PDF</button>
+            {canShareProposal(proposalFile) && <button disabled={busy} onClick={() => {
+              // Invoke share directly from the click to retain browser user activation.
+              void navigator.share({ files: [proposalFile], title: 'Коммерческое предложение' }).catch((reason: unknown) => {
+                if (!(reason instanceof Error && reason.name === 'AbortError')) setError('Не удалось поделиться PDF. Сохраните файл кнопкой «Скачать PDF».');
+              });
+            }}>Поделиться</button>}
+          </>}
+        </section>}
       </>}
       <p className="muted">Замеры сохраняются в браузере после «Сохранить замер». Копирование и удаление сохраняются сразу. Незавершённый ввод в редакторе не сохраняется.</p>
     </>}

@@ -12,7 +12,7 @@
 - `src/domain/works`: контракт и валидация дополнительных работ; сложение стоимости принадлежит application.
 - `src/domain/calculation.ts`: контейнер замеров, метаданных и снимков тарифов; без формул. `measurement-estimate.ts`: результат оценки одного замера.
 - `src/application/estimate`: координация валидации, geometry, pricing; интерфейс репозитория.
-- `src/application/documents`: подготовка ProposalDocument из расчёта и сметы; без PDF в текущем этапе.
+- `src/application/documents`: подготовка ProposalDocument из расчёта и сметы; без браузерного I/O; PDF renderer подключается через порт.
 - `src/infrastructure/storage`: Dexie/IndexedDB, схема, миграция v1 → v2 → v3 и реализация репозитория. Старый формат допустим только в адаптере миграции, не как вторая доменная модель.
 - `src/ui`: ввод, отображение, обработка ошибок; вызывает application. SVG получает готовую geometry, не вычисляет координаты и площади.
 - `src/main.tsx`: composition root, связывает UI и реализацию репозитория.
@@ -56,7 +56,7 @@ Geometry не зависит от pricing. Pricing получает площад
 - Dexie v2 мигрирует старые одиночные окна: размеры из старой секции переходят в окно, hardwareId в активную секцию. Расчёт восстанавливается по сохранённым тарифам через application; цена не рассчитывается в storage. Ошибка миграции откатывает транзакцию без удаления записи.
 - Текущая цена и эскиз пересчитываются из текущего ввода. При невалидном вводе они недоступны и сохранить нельзя; устаревший расчёт не показывается.
 - IndexedDB локальна; серверное хранение, backend/auth/payments/subscriptions отсутствуют.
-- PDF не имеет исполняемого сценария.
+- PDF renderer в infrastructure/pdf получает только ProposalDocument; порт application/documents связывается с UI в composition root. Генерация клиентская, без чтения Calculation или настроек и без повторного расчёта цен/геометрии.
 
 ## WindowFinish — самостоятельная отделка
 
@@ -127,7 +127,7 @@ Geometry не зависит от pricing. Pricing получает площад
 - Calculation/MeasurementEstimate/configuration snapshots расширены веткой Balcony. Copy глубоко копирует planes/levels/sections/configuration/works; ID плоскостей и секций локальны и могут сохраняться в копии, ID работ обновляются.
 - IndexedDB остаётся v3: форма контейнера и индексы не меняются. Старые Window/WindowFinish записи читаются по прежним правилам; новая ветка нормализуется через estimateBalcony. Нет destructive migration.
 - В editor новая плоскость имеет пустые размеры; первая валидная ширина создаёт равные секции. Смена формы сохраняет общие стороны и удаляет отсутствующие (правило показано в UI). Смена material явно сбрасывает открывания в fixed и profileId. Верхние активные PVC створки начинают с видимых левых петель и требуют явного выбора hardware.
-- Отделка балкона, PDF и серверные функции не реализованы. Domain/geometry/pricing остаются независимыми от будущего Access layer.
+- Отделка балкона и серверные функции не реализованы. Domain/geometry/pricing остаются независимыми от будущего Access layer.
 
 ## Скидки и фиксированная цена Calculation
 
@@ -153,13 +153,13 @@ Geometry не зависит от pricing. Pricing получает площад
 - Глобальные данные продавца для будущих КП: обязательные sellerName/sellerPhone; optional telegram/whatsapp/email/companyName/inn/companyPhone/website. Компания может отсутствовать или быть заполнена частично.
 - Отдельная запись `documentSettings` в существующей таблице settings, IndexedDB остаётся v3. При отсутствии записи возвращается пустая форма без записи при чтении; неполную форму сохранять нельзя. Повреждённые данные вызывают ошибку без перезаписи.
 - Экран «Данные для КП» сохраняет данные явной кнопкой. Пробелы по краям удаляются, пустые optional-поля исключаются. Телефоны содержат 7–15 цифр; Email, ИНН (10/12 цифр) и полный HTTP(S)-адрес сайта проверяются, только если заполнены. Telegram/WhatsApp — свободный текст.
-- DocumentSettings независимы от CalculatorSettings и Calculation. ProposalDocument получает независимый снимок продавца; PDF остаётся вне текущей реализации.
+- DocumentSettings независимы от CalculatorSettings и Calculation. ProposalDocument получает независимый снимок продавца; PDF получает только этот снимок через ProposalDocument.
 
 ## ProposalDocument
 
 - `domain/documents/proposal-document` — коммерческий DTO без исходных Measurement/configuration, закупочных цен, наценок и внутренних коэффициентов. `application/documents` готовит его из Calculation, актуального CalculationEstimate и валидного DocumentSettings; ID и generatedAt передаются извне.
-- Будущий PDF renderer получает только ProposalDocument: готовые коммерческие суммы, подписи, размеры и координаты эскизов. Не обращается к Calculation, React state или настройкам и не рассчитывает geometry/pricing.
-- Создание проверяет соответствие сметы текущему Calculation через существующий estimate pipeline; устаревшая смета или неподтверждённая fixed final price запрещают финальное КП. Все вложенные presentation-данные и работы независимы от исходных объектов. Хранение/история документов и PDF пока отсутствуют.
+- PDF renderer получает только ProposalDocument: готовые коммерческие суммы, подписи, размеры и координаты эскизов. Не обращается к Calculation, React state или настройкам и не рассчитывает geometry/pricing.
+- Создание проверяет соответствие сметы текущему Calculation через существующий estimate pipeline; устаревшая смета или неподтверждённая fixed final price запрещают финальное КП. Все вложенные presentation-данные и работы независимы от исходных объектов. Хранение и история документов/PDF отсутствуют.
 
 ## Команды проверок
 
