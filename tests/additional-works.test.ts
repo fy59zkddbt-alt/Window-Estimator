@@ -99,7 +99,7 @@ it('saves and reloads both levels and edited copied works in IndexedDB v3', asyn
     expect(loaded.measurements[0]!.additionalWorks[0]!.priceMinor).toBe(work.priceMinor);
     expect(loaded.measurements[2]!.additionalWorks[0]!.priceMinor).toBe(123);
     expect(estimateCalculation(loaded).subtotalMinor).toBe(estimateCalculation(result).subtotalMinor);
-    expect(db.verno).toBe(3);
+    expect(db.verno).toBe(4);
   } finally { await db.delete(); }
 });
 it('loads legacy v3 records with missing works as empty arrays without rewriting the record', async () => {

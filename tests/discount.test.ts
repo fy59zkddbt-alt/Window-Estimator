@@ -99,6 +99,6 @@ it('IndexedDB v3 persists confirmed, pending and percent states; old records nor
     expect(loaded.discount).toEqual({ mode: 'none' });
     expect(estimateCalculation(loaded).finalTotalMinor).toBe(subtotal);
     expect(await db.table('calculations').get(legacy.id)).toEqual(legacy);
-    expect(db.verno).toBe(3);
+    expect(db.verno).toBe(4);
   } finally { await db.delete(); }
 });

@@ -161,6 +161,16 @@ Geometry не зависит от pricing. Pricing получает площад
 - PDF renderer получает только ProposalDocument: готовые коммерческие суммы, подписи, размеры и координаты эскизов. Не обращается к Calculation, React state или настройкам и не рассчитывает geometry/pricing.
 - Создание проверяет соответствие сметы текущему Calculation через существующий estimate pipeline; устаревшая смета или неподтверждённая fixed final price запрещают финальное КП. Все вложенные presentation-данные и работы независимы от исходных объектов. Хранение и история документов/PDF отсутствуют.
 
+## Auth foundation (текущий этап)
+
+- Supabase Auth подключается через порт `application/auth` и адаптер `infrastructure/auth`; связывание в `main.tsx`. UI открывает калькулятор только после восстановления session и подготовки локального владения.
+- Auth не добавляется в domain, Calculation, Measurement, ProposalDocument, geometry/pricing и PDF. Сервер хранит только auth identity/session; расчёты и настройки остаются локальными.
+- Для auth используется IndexedDB v4: новые `ownedCalculations`/`ownedSettings` изолированы по userId. Доменный Calculation остаётся schemaVersion=3. Указания об IndexedDB v3 выше описывают прежние этапы; цепочка v1→v2→v3 сохраняется, v4 только добавляет таблицы.
+- При первом входе anonymous calculations и activeCalculationId/calculatorSettings/documentSettings копируются атомарно с отметкой anonymousDataOwner; исходные таблицы и legacyCalculations сохраняются. Конфликт откатывает перенос. Последующие пользователи не получают эти данные.
+- Production repositories всегда получают userId из session. Anonymous mode допускается только для совместимости старого storage и тестов. Ни один пользовательский read не обращается к anonymous данным как fallback.
+- Frontend принимает только Supabase browser publishable key; пароль не сохраняется приложением. Разные web/PWA storage containers входят отдельно. Подписки, entitlement, платежи и cloud sync не добавлены.
+- Настройка и решения описаны в `docs/auth-foundation.md`.
+
 ## Команды проверок
 
 Node.js >= 22.12; пакетный менеджер pnpm, lockfile обязателен.

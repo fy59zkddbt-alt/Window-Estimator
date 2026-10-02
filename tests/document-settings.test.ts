@@ -65,7 +65,7 @@ it('loads empty state without writing and preserves other settings and calculati
     reopened = new EstimatorDatabase(name);
     const next = new DexieDocumentSettingsRepository(reopened);
     expect(await next.load()).toEqual({ ...seller, companyName: 'Окна', inn: '1234567890' });
-    expect(reopened.verno).toBe(3);
+    expect(reopened.verno).toBe(4);
     expect((await reopened.settings.get('activeCalculationId'))?.value).toBe('existing');
     expect(await new DexieCalculatorSettingsRepository(reopened).load()).toEqual(rates);
     expect(await reopened.calculations.toArray()).toEqual([calculation]);

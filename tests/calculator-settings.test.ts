@@ -136,7 +136,7 @@ it('opens an existing v3 store without settings and does not rewrite calculation
   try {
     expect(await new DexieCalculatorSettingsRepository(db).load()).toEqual(createDefaultCalculatorSettings());
     expect(await db.calculations.get(record.id)).toEqual(record);
-    expect(db.verno).toBe(3);
+    expect(db.verno).toBe(4);
   } finally { await db.delete(); }
 });
 

@@ -5,6 +5,8 @@ import { migrateCalculationV1, migrateCalculationV2 } from './migrate-calculatio
 export class EstimatorDatabase extends Dexie {
   calculations!: Table<Calculation, string>;
   settings!: Table<{ key: string; value: string }, string>;
+  ownedCalculations!: Table<{ key: string; userId: string; calculation: Calculation }, string>;
+  ownedSettings!: Table<{ key: string; value: string }, string>;
   constructor(name = 'window-estimator') {
     super(name);
     this.version(1).stores({ calculations: 'id' });
@@ -26,5 +28,8 @@ export class EstimatorDatabase extends Dexie {
       }
       if (records[0]) await transaction.table('settings').put({ key: 'activeCalculationId', value: records[0].id });
     });
+    // Ownership lives in storage envelopes, never in Calculation/Measurement.
+    // Existing stores are retained as anonymous backups; claim happens after login.
+    this.version(4).stores({ ownedCalculations: 'key,userId', ownedSettings: 'key' });
   }
 }

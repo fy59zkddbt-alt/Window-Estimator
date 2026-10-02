@@ -140,6 +140,6 @@ it('mixed Calculation, works, independent copy/edit/delete and IndexedDB reopen'
     const restored = (await repo.get(edited.id))!;
     expect(restored).toEqual(edited);
     expect(estimateCalculation(restored)).toEqual(estimateCalculation(edited));
-    expect(db.verno).toBe(3);
+    expect(db.verno).toBe(4);
   } finally { await db.delete(); }
 });
