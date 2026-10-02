@@ -1,8 +1,8 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { renderProposalPdf, proposalBlocks } from '../src/infrastructure/pdf/render-proposal-pdf';
 import { paginate } from '../src/infrastructure/pdf/layout';
 import { proposalFilename } from '../src/application/documents/proposal-pdf';
-import { canShareProposal } from '../src/ui/proposal-file';
+import { canShareProposal, downloadProposal } from '../src/ui/proposal-file';
 import type { ProposalDocument } from '../src/domain/documents/proposal-document';
 
 function document(count = 1): ProposalDocument {
@@ -79,6 +79,35 @@ it('sanitizes filenames and chooses customer, object or neutral name', () => {
   expect(name).not.toMatch(/[<>:"/\\|?*\u0000-\u001f]/);
   expect(name).toContain('Иван');
   value.customer.clientName = 'Я'.repeat(500); expect(proposalFilename(value).length).toBeLessThan(110);
+});
+
+it('downloads the generated PDF Blob with the safe proposal filename', async () => {
+  const value = document();
+  value.customer.clientName = 'Иван/Петров';
+  const blob = await renderProposalPdf(value);
+  const file = new File([blob], proposalFilename(value), { type: blob.type });
+  const click = vi.fn();
+  const link = { href: '', download: '', click, remove: vi.fn() };
+  vi.useFakeTimers();
+  vi.stubGlobal('document', { createElement: () => link, body: { append: vi.fn() } });
+  const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:proposal-pdf');
+  const revokeUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  try {
+    downloadProposal(file);
+    expect(createUrl).toHaveBeenCalledWith(file);
+    expect(file.type).toBe('application/pdf');
+    expect(new TextDecoder().decode(await file.slice(0, 5).arrayBuffer())).toBe('%PDF-');
+    expect(link.href).toBe('blob:proposal-pdf');
+    expect(link.download).toBe('КП_Иван_Петров_2026-10-02.pdf');
+    expect(click).toHaveBeenCalledOnce();
+    expect(revokeUrl).not.toHaveBeenCalled();
+    vi.runAllTimers();
+    expect(revokeUrl).toHaveBeenCalledWith('blob:proposal-pdf');
+  } finally {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  }
 });
 
 it('moves a fitting measurement together; oversized blocks split without empty pages or isolated headings', () => {
