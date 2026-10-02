@@ -12,12 +12,15 @@ import { DiscountEditor } from './DiscountEditor';
 import { updateCalculationDiscount, confirmFixedFinalPrice, resetCalculationDiscount } from '../application/estimate/calculation-service';
 import { createSettingsSnapshot, type CalculatorSettings, type CalculatorSettingsRepository } from '../application/settings/calculator-settings';
 import { SettingsScreen } from './SettingsScreen';
+import type { DocumentSettingsRepository } from '../application/settings/document-settings';
+import { DocumentSettingsScreen } from './DocumentSettingsScreen';
 
 type Editor = { id: string; kind: 'Window' | 'WindowFinish' | 'Balcony'; initial?: MeasurementEstimate; snapshot?: ReturnType<typeof createSettingsSnapshot> };
 const now = () => new Date().toISOString();
 const money = (minor: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(minor / 100);
 
-export function App({ repository, settingsRepository }: { repository: CalculationRepository; settingsRepository: CalculatorSettingsRepository }) {
+export function App({ repository, settingsRepository, documentSettingsRepository }: { repository: CalculationRepository; settingsRepository: CalculatorSettingsRepository; documentSettingsRepository: DocumentSettingsRepository }) {
+  const [showDocumentSettings, setShowDocumentSettings] = useState(false);
   const [settings, setSettings] = useState<CalculatorSettings>();
   const [showSettings, setShowSettings] = useState(false);
   const [calculations, setCalculations] = useState<Calculation[]>([]);
@@ -60,6 +63,7 @@ export function App({ repository, settingsRepository }: { repository: Calculatio
   function openNewEditor(kind: Editor['kind']) {
     if (settings) setEditor({ id: crypto.randomUUID(), kind, snapshot: createSettingsSnapshot(settings) });
   }
+  if (showDocumentSettings) return <DocumentSettingsScreen repository={documentSettingsRepository} onClose={() => setShowDocumentSettings(false)} />;
   if (showSettings && settings) return <SettingsScreen initial={settings} onClose={() => setShowSettings(false)} onSave={async (value) => {
     await settingsRepository.save(value); setSettings(value);
   }} />;
@@ -77,6 +81,7 @@ export function App({ repository, settingsRepository }: { repository: Calculatio
     <fieldset disabled={busy || !ready}>
       <div className="calculation-actions">
         <button onClick={() => setShowSettings(true)}>Настройки калькулятора</button>
+        <button onClick={() => setShowDocumentSettings(true)}>Данные для КП</button>
         <button onClick={() => void action(async () => { await persist(createCalculation(crypto.randomUUID(), now())); setScreen('composition'); })}>Новый расчёт</button>
         <label>Сохранённые расчёты<select aria-label="Сохранённые расчёты" value={current?.id ?? ''} onChange={(event) => {
           const id = event.target.value;
