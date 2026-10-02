@@ -28,6 +28,7 @@ export function estimateCalculation(calculation: Calculation) {
   const subtotalMinor = sumMinor([measurementsSubtotalMinor, orderWorksTotalMinor]);
   return { lines, measurementsSubtotalMinor, orderWorksTotalMinor, subtotalMinor, ...estimateDiscount(calculation.discount, subtotalMinor) };
 }
+export type CalculationEstimate = ReturnType<typeof estimateCalculation>;
 function describeMeasurement(m: Measurement) {
   if (m.kind === 'Balcony') return { description: `Балкон ${m.balconyType}${m.side ? ` · ${m.side === 'left' ? 'левый' : 'правый'}` : ''} · ${m.material === 'pvc' ? 'ПВХ' : 'Алюминий'}`, dimensions: m.planes.map((p) => `${p.name}: ${p.widthMm} × ${p.heightMm} мм`).join('; ') };
   if (m.kind === 'WindowFinish') return { description: m.selections.map((s) => s.finishType === 'slope' ? 'Откосы' : 'Подоконник').join(' + '), dimensions: `${m.widthMm} × ${m.heightMm} × ${m.depthMm} мм` };

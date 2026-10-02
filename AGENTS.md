@@ -12,7 +12,7 @@
 - `src/domain/works`: контракт и валидация дополнительных работ; сложение стоимости принадлежит application.
 - `src/domain/calculation.ts`: контейнер замеров, метаданных и снимков тарифов; без формул. `measurement-estimate.ts`: результат оценки одного замера.
 - `src/application/estimate`: координация валидации, geometry, pricing; интерфейс репозитория.
-- `src/application/documents`: резерв для модели документа; без PDF в текущем этапе.
+- `src/application/documents`: подготовка ProposalDocument из расчёта и сметы; без PDF в текущем этапе.
 - `src/infrastructure/storage`: Dexie/IndexedDB, схема, миграция v1 → v2 → v3 и реализация репозитория. Старый формат допустим только в адаптере миграции, не как вторая доменная модель.
 - `src/ui`: ввод, отображение, обработка ошибок; вызывает application. SVG получает готовую geometry, не вычисляет координаты и площади.
 - `src/main.tsx`: composition root, связывает UI и реализацию репозитория.
@@ -153,7 +153,13 @@ Geometry не зависит от pricing. Pricing получает площад
 - Глобальные данные продавца для будущих КП: обязательные sellerName/sellerPhone; optional telegram/whatsapp/email/companyName/inn/companyPhone/website. Компания может отсутствовать или быть заполнена частично.
 - Отдельная запись `documentSettings` в существующей таблице settings, IndexedDB остаётся v3. При отсутствии записи возвращается пустая форма без записи при чтении; неполную форму сохранять нельзя. Повреждённые данные вызывают ошибку без перезаписи.
 - Экран «Данные для КП» сохраняет данные явной кнопкой. Пробелы по краям удаляются, пустые optional-поля исключаются. Телефоны содержат 7–15 цифр; Email, ИНН (10/12 цифр) и полный HTTP(S)-адрес сайта проверяются, только если заполнены. Telegram/WhatsApp — свободный текст.
-- DocumentSettings независимы от CalculatorSettings и Calculation. Снимки в документах, ProposalDocument и PDF остаются вне текущей реализации.
+- DocumentSettings независимы от CalculatorSettings и Calculation. ProposalDocument получает независимый снимок продавца; PDF остаётся вне текущей реализации.
+
+## ProposalDocument
+
+- `domain/documents/proposal-document` — коммерческий DTO без исходных Measurement/configuration, закупочных цен, наценок и внутренних коэффициентов. `application/documents` готовит его из Calculation, актуального CalculationEstimate и валидного DocumentSettings; ID и generatedAt передаются извне.
+- Будущий PDF renderer получает только ProposalDocument: готовые коммерческие суммы, подписи, размеры и координаты эскизов. Не обращается к Calculation, React state или настройкам и не рассчитывает geometry/pricing.
+- Создание проверяет соответствие сметы текущему Calculation через существующий estimate pipeline; устаревшая смета или неподтверждённая fixed final price запрещают финальное КП. Все вложенные presentation-данные и работы независимы от исходных объектов. Хранение/история документов и PDF пока отсутствуют.
 
 ## Команды проверок
 
