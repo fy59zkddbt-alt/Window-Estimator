@@ -2,7 +2,7 @@ import { createBalcony, type BalconyInput } from '../../domain/measurements/balc
 import type { UserConfiguration } from '../../domain/configuration/types';
 import type { BalconyEstimate } from '../../domain/measurement-estimate';
 import { getBalconyGeometry } from '../../domain/geometry/balcony-geometry';
-import { priceGlazing } from '../../domain/pricing/glazing-pricing';
+import { priceInstalledGlazing } from '../../domain/pricing/glazing-pricing';
 import { measurementTotals } from './additional-works';
 export type { BalconyInput } from '../../domain/measurements/balcony/create-balcony';
 
@@ -18,7 +18,7 @@ export function estimateBalcony(input: BalconyInput, configuration: UserConfigur
     }
   }
   const geometry = getBalconyGeometry(measurement);
-  const price = priceGlazing(geometry, profile, measurement.lamination);
+  const price = priceInstalledGlazing(geometry, profile, measurement.lamination);
   return { id: measurement.id, schemaVersion: 2, measurement, geometry, price, ...measurementTotals(price.totalMinor, measurement.additionalWorks),
     configuration: { currency: configuration.currency, profiles: configuration.profiles.map((p) => ({ ...p })), hardware: configuration.hardware.map((h) => ({ ...h })) } };
 }

@@ -9,6 +9,24 @@ export interface GlazingPrice {
   totalMinor: number;
 }
 
+export interface InstalledGlazingPrice extends GlazingPrice {
+  productPriceMinor: number;
+  installationPriceMinor: number;
+}
+
+/** Installation is charged on total area, without product/color/activity markups. */
+export function priceInstalledGlazing(geometry: GlazingGeometry, profile: ProfileConfiguration, lamination: Lamination): InstalledGlazingPrice {
+  const product = priceGlazing(geometry, profile, lamination);
+  // Historical snapshots predate installation and retain their original price.
+  const rate = profile.installationRatePerM2 === undefined ? 0 : profile.installationRatePerM2;
+  if (!Number.isFinite(rate) || rate < 0) throw new Error('Тариф монтажа должен быть конечным числом не меньше нуля.');
+  const installationAmount = geometry.totalAreaM2 * rate;
+  const installationPriceMinor = Math.round((installationAmount + Number.EPSILON * installationAmount) * 100);
+  const totalMinor = product.totalMinor + installationPriceMinor;
+  if (!Number.isSafeInteger(installationPriceMinor) || !Number.isSafeInteger(totalMinor)) throw new Error('Стоимость вне допустимого числового диапазона.');
+  return { ...product, productPriceMinor: product.totalMinor, installationPriceMinor, totalMinor };
+}
+
 export function priceGlazing(geometry: GlazingGeometry, profile: ProfileConfiguration, lamination: Lamination): GlazingPrice {
   const { totalAreaM2: totalArea, activeAreaM2: activeArea } = geometry;
   if (!Number.isFinite(totalArea) || totalArea <= 0 || !Number.isFinite(activeArea) || activeArea < 0 || activeArea > totalArea) throw new Error('Некорректная площадь.');

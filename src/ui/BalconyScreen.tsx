@@ -29,7 +29,7 @@ export function BalconyScreen({ id, initial, configuration: currentConfiguration
     try { await onSave(result); } catch (reason) { setSaveError(reason instanceof Error ? reason.message : 'Не удалось сохранить.'); }
     finally { setBusy(false); }
   }
-  return <main><h1>Балкон</h1><p className="muted">Тарифы из снимка настроек замера. Вид из помещения; плоскости показаны отдельно. Монтаж автоматически не начисляется.</p>
+  return <main><h1>Балкон</h1><p className="muted">Тарифы из снимка настроек замера. Вид из помещения; плоскости показаны отдельно. Монтаж включён по общей площади.</p>
     <div className="layout"><form onSubmit={(e) => e.preventDefault()}><fieldset disabled={busy}><legend>Помещение и конструкция</legend>
       <div className="fields"><label>Помещение<input value={input.room} onChange={(e) => setInput({ ...input, room: e.target.value })} /></label>
       <label>Название<input value={input.name} onChange={(e) => setInput({ ...input, name: e.target.value })} /></label>
@@ -62,6 +62,7 @@ export function BalconyScreen({ id, initial, configuration: currentConfiguration
     <AdditionalWorksEditor works={input.additionalWorks ?? []} onChange={(additionalWorks) => setInput({ ...input, additionalWorks })} disabled={busy} />
     </form><aside><h2>Текущая цена</h2>{result ? <><p className="total">{money(result.measurementTotalMinor)}</p>
       <p>Остекление: {money(result.basePriceMinor)}; допработы: {money(result.additionalWorksTotalMinor)}.</p>
+      <p>Изделие: {money(result.price.productPriceMinor)}; монтаж: {money(result.price.installationPriceMinor)}.</p>
       <p>Общая площадь: {result.geometry.totalAreaM2.toLocaleString('ru-RU')} м²; активная: {result.geometry.activeAreaM2.toLocaleString('ru-RU')} м²; сэндвич: {result.geometry.sandwichAreaM2.toLocaleString('ru-RU')} м².</p>
       <p className="muted">Сэндвич пока оценивается по общей ставке остекления, без ценовой поправки.</p>
       {result.geometry.planes.map((p) => <section key={p.id}><h3>{p.name}</h3><p>Площадь: {p.totalAreaM2.toLocaleString('ru-RU')} м².</p><WindowPreview geometry={p} label={`Балкон — ${p.name}`} /></section>)}

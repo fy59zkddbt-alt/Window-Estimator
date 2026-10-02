@@ -9,7 +9,7 @@ export interface ProfileConfiguration {
   laminateOneSidePercent: number;
   laminateTwoSidesPercent: number;
   productMarkupPercent: number;
-  /** Reserved installation rate; not applied by glazing pricing. Optional in historical snapshots. */
+  /** RUB per m² of total glazing area. Missing in historical snapshots means zero. */
   installationRatePerM2?: number;
 }
 export interface HardwareConfiguration { id: string; name: string; material: Material }

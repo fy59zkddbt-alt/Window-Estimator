@@ -92,7 +92,8 @@ it('uses the existing glazing engine for either material; sandwich has no correc
   for (const material of ['pvc', 'aluminium'] as const) {
     const value = input(); const p = value.planes[0]!;
     const result = estimateBalcony({ ...value, material, profileId: material, lamination: 'two_sides', planes: [{ ...p, levels: { mode: 'twoLevel', splitHeightMm: 800, lowerFill: 'sandwich' } }] }, config);
-    expect(result.price).toEqual(priceGlazing(result.geometry, config.profiles.find((p) => p.id === material)!, 'two_sides'));
+    const product = priceGlazing(result.geometry, config.profiles.find((p) => p.id === material)!, 'two_sides');
+    expect(result.price).toEqual({ ...product, productPriceMinor: product.totalMinor, installationPriceMinor: 0 });
     expect(result.basePriceMinor).toBe(2760000);
   }
 });

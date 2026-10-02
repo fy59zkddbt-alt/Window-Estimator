@@ -68,7 +68,7 @@ export function WindowScreen({ id, initial, configuration: currentConfiguration,
 
   return <main>
     <header><p className="eyebrow">ЗАМЕР → РАСЧЁТ → СМЕТА</p><h1>Window Estimator</h1><p>Окно · базовый оконный замер</p></header>
-    <p className="notice">Тарифы взяты из снимка настроек замера. Монтаж автоматически не начисляется; дополнительные работы добавляются отдельно.</p>
+    <p className="notice">Тарифы взяты из снимка настроек замера. Монтаж включён по общей площади; дополнительные работы добавляются отдельно.</p>
     <div className="layout"><form onSubmit={(event) => event.preventDefault()}>
       <fieldset disabled={busy}><legend>1. Помещение и тип окна</legend><div className="fields">
         <label>Помещение<input required value={input.room} onChange={(e) => edit({ room: e.target.value })} /></label>
@@ -95,6 +95,7 @@ export function WindowScreen({ id, initial, configuration: currentConfiguration,
       <h2>Текущая цена</h2>{result ? <>
         <p className="total">{money(result.measurementTotalMinor / 100)}</p>
         <p>Остекление: {money(result.basePriceMinor / 100)}; дополнительные работы: {money(result.additionalWorksTotalMinor / 100)}.</p>
+        <p>Изделие: {money(result.price.productPriceMinor / 100)}; монтаж: {money(result.price.installationPriceMinor / 100)}.</p>
         <dl>{[
           ['Общая площадь', `${result.geometry.totalAreaM2.toLocaleString('ru-RU', { maximumFractionDigits: 6 })} м²`],
           ['Активная площадь', `${result.geometry.activeAreaM2.toLocaleString('ru-RU', { maximumFractionDigits: 6 })} м²`],

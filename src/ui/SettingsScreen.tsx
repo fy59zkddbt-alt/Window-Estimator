@@ -33,7 +33,7 @@ export function SettingsScreen({ initial, onSave, onClose }: {
     <p className="notice">Начальные значения демонстрационные. Проверьте их перед расчётом для клиента.</p>
     <form onSubmit={(event) => { event.preventDefault(); if (!validation) void save(); }}>
       <fieldset disabled={busy}><legend>Остекление</legend>
-        <p>Для алюминия цвет учитывается по той же схеме одной / двух сторон. Монтаж сохраняется как справочная ставка и пока не начисляется в смете. Фурнитура не имеет отдельной надбавки.</p>
+        <p>Для алюминия цвет учитывается по той же схеме одной / двух сторон. Монтаж включается в стоимость остекления по общей площади, без наценки изделия. Фурнитура не имеет отдельной надбавки.</p>
         {draft.glazing.profiles.map((profile, index) => <section className="measurement-card" key={profile.id} aria-label={`Профиль ${index + 1}`}>
           <h2>{profile.name || 'Новый профиль'}</h2><p className="muted">ID: {profile.id}</p>
           <div className="fields">
