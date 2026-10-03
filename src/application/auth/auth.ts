@@ -13,7 +13,7 @@ export interface AuthState {
   notice?: string;
 }
 
-/** Owns access to the app; contains no browser or provider-specific APIs. */
+/** Restores identity and local ownership; entitlement is a separate access layer. */
 export class AuthController {
   state: AuthState = { status: 'loading' };
   private listeners = new Set<() => void>();

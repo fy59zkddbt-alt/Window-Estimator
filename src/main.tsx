@@ -16,6 +16,11 @@ import { normalizeDocumentSettings } from './application/settings/document-setti
 import { decodeDocumentSettingsCache } from './application/settings/document-settings-cache';
 import { claimAnonymousData } from './infrastructure/storage/local-ownership';
 import { AuthGate } from './ui/AuthGate';
+import { AccessController } from './application/access/entitlement';
+import { SupabaseEntitlementProvider } from './infrastructure/auth/supabase-entitlement-provider';
+import { BrowserEntitlementCache } from './infrastructure/auth/entitlement-cache';
+import { AccessGate } from './ui/AccessGate';
+import { BrowserAuthIdentityCache } from './infrastructure/auth/auth-identity-cache';
 
 // Composition root: the only place wiring UI to a concrete storage adapter.
 const database = new EstimatorDatabase();
@@ -44,12 +49,20 @@ function UserApp({ user, client }: { user: AuthUser; client: SupabaseClient }) {
   return <App {...repositories} renderProposalPdf={renderProposalPdf} />;
 }
 
+function UserAccess({ user, client }: { user: AuthUser; client: SupabaseClient }) {
+  const access = useMemo(() => new AccessController(user.id,
+    new SupabaseEntitlementProvider(client, () => navigator.onLine),
+    new BrowserEntitlementCache(window.localStorage),
+    { wallNow: () => Date.now(), monotonicNow: () => performance.now() }), [user.id, client]);
+  return <AccessGate controller={access}><UserApp user={user} client={client} /></AccessGate>;
+}
+
 function bootstrap() {
   try {
     const client = createSupabaseBrowserClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
-    const provider = new SupabaseAuthProvider(client);
+    const provider = new SupabaseAuthProvider(client, new BrowserAuthIdentityCache(window.localStorage));
     const controller = new AuthController(provider, (userId) => claimAnonymousData(database, userId));
-    return <AuthGate controller={controller}>{(user) => <UserApp key={user.id} user={user} client={client} />}</AuthGate>;
+    return <AuthGate controller={controller}>{(user) => <UserAccess key={user.id} user={user} client={client} />}</AuthGate>;
   } catch {
     return <main><h1>Window Estimator</h1><p role="alert">Auth не настроен. Задайте VITE_SUPABASE_URL и VITE_SUPABASE_PUBLISHABLE_KEY, затем перезапустите приложение.</p></main>;
   }

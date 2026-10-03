@@ -25,8 +25,9 @@ fallback or development authentication bypass.
 Registration uses email/password only. If Supabase requires email confirmation,
 the UI explains the next step; no separate verification screen is introduced.
 Without confirmation, the adapter closes the registration session and asks for
-an explicit login. Login prepares local ownership before mounting the existing
-app. A loading state hides the app during session restore and ownership setup.
+an explicit login. Login prepares local ownership before entitlement checking
+and mounting the app (see [Entitlement + trial](entitlement-trial.md)). A loading
+state hides the app during session restore and ownership setup.
 Provider auth events handle signout and session changes, including other tabs.
 Token refresh events for the same authenticated user keep the app mounted.
 Logout closes the session in the current container (`scope: local`) and unmounts
@@ -69,8 +70,9 @@ reassignment and recovery UI are outside this phase.
 
 Domain geometry/pricing, Measurement, Calculation, ProposalDocument and PDF
 renderer are unchanged. Auth uses an application port and an infrastructure
-adapter, wired only in main.tsx. No subscription, entitlement, trial, payments,
-trusted devices, cloud sync, organizations/roles or password reset was added.
+adapter, wired only in main.tsx. This foundation is now extended by the separate
+entitlement/trial access layer and Cloud Settings. Payments, trusted devices,
+cloud Calculations, organizations/roles and password reset are not implemented.
 
 References: [React setup](https://supabase.com/docs/guides/auth/quickstarts/react),
 [password auth](https://supabase.com/docs/guides/auth/passwords),

@@ -50,3 +50,6 @@ figcaption span, figcaption strong { display: block; margin-top: 4px; }
 .auth-screen { max-width: 640px; }
 .auth-screen form > button { margin-top: 16px; }
 .workflow-nav { align-items: center; flex-wrap: wrap; }
+.access-warning { margin: 1rem; padding: 1rem; border: 2px solid #c27a00; background: #fff4d6; color: #513300; border-radius: 8px; }
+.access-warning.urgent { border-color: #b42318; background: #fff0ed; color: #8a1c13; }
+.access-warning button { margin-left: 1rem; }
