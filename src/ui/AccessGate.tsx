@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { expiryWarning, type AccessController } from '../application/access/entitlement';
+import { BillingSummary } from './BillingSummary';
 
 export function AccessGate({ controller, children }: { controller: AccessController; children: ReactNode }) {
   const state = useSyncExternalStore(controller.subscribe, controller.snapshot);
@@ -28,6 +29,7 @@ export function AccessGate({ controller, children }: { controller: AccessControl
         : state.status === 'trial_already_used_on_device' ? 'Новый автоматический пробный период не предоставлен. Ваши локальные данные сохранены.'
         : 'Подключитесь к интернету и повторите проверку. Offline-доступ возможен только в течение 24 часов после успешной проверки и до окончания срока доступа.'}</p>
       {state.status === 'expired' && <p>Оплата будет доступна позже.</p>}
+      {state.entitlement && <BillingSummary entitlement={state.entitlement} accessStatus={state.status} offline={state.offline ?? false} />}
       <button onClick={() => void controller.check()}>Проверить доступ снова</button>
     </>}
   </main>;
@@ -35,6 +37,7 @@ export function AccessGate({ controller, children }: { controller: AccessControl
   const currentDay = Math.floor(now / 86_400_000);
   const warning = expiryWarning(state.entitlement!.validUntil, now);
   return <>
+    <BillingSummary entitlement={state.entitlement!} accessStatus={state.status} offline={state.offline ?? false} />
     {state.entitlement!.status === 'trial' && <p className="notice" role="status">Пробный доступ на 14 дней, без карты. Доступ до {new Date(state.entitlement!.validUntil!).toLocaleString('ru-RU')}.</p>}
     {warning && dismissedDay !== currentDay && <aside role="alert" className={`access-warning${warning.urgent ? ' urgent' : ''}`}>
       <strong>{warning.urgent ? 'Доступ закончится в течение 24 часов. Сохраните текущую работу.' : `Доступ закончится через ${warning.days} ${warning.days === 5 ? 'дней' : 'дня'}`}</strong>

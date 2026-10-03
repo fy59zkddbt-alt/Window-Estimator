@@ -173,6 +173,14 @@ Geometry не зависит от pricing. Pricing получает площад
 
 ## Команды проверок
 
+Subscription Foundation: server-side subscriptions и entitlement RPC описаны в
+`docs/subscription-foundation.md`. Миграция 004 применяется вручную. Paid state,
+grace и period dates управляются только сервером; UI читает billing projection.
+Payment provider пока представлен только server-only контрактами без реализации.
+Auth/trial/trusted devices существуют в текущем этапе; прежние указания об их
+отсутствии выше относятся к историческим этапам. Domain замеров и Pricing Engine
+не зависят от доступа и подписки.
+
 Node.js >= 22.12; пакетный менеджер pnpm, lockfile обязателен.
 
 ```sh

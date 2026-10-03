@@ -1,3 +1,5 @@
+import { decodeBillingSummary, type BillingSummary } from './billing';
+
 export type AccessRestriction = 'device_limit_reached' | 'trial_already_used_on_device';
 export interface Entitlement {
   userId: string;
@@ -5,6 +7,7 @@ export interface Entitlement {
   serverNow: number;
   validUntil: number | null;
   reason?: AccessRestriction;
+  billing?: BillingSummary;
 }
 export interface EntitlementProvider { check(): Promise<Entitlement> }
 export class EntitlementUnavailable extends Error {}
@@ -39,7 +42,8 @@ export function decodeEntitlement(value: unknown): Entitlement {
   if (e.reason !== undefined && e.reason !== null
     && (!['device_limit_reached', 'trial_already_used_on_device'].includes(e.reason) || e.status !== 'expired')) throw new Error('Invalid entitlement');
   return { userId: e.userId, status: e.status, serverNow: e.serverNow, validUntil: e.validUntil,
-    ...(e.reason ? { reason: e.reason } : {}) };
+    ...(e.reason ? { reason: e.reason } : {}),
+    ...(e.billing === undefined ? {} : { billing: decodeBillingSummary(e.billing) }) };
 }
 
 /** Server decides entitlement; local clocks measure elapsed grace, never create dates. */

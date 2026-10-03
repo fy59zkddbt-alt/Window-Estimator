@@ -1,5 +1,10 @@
 # Entitlement + 14-day trial
 
+**Subscription extension:** [Subscription Foundation](subscription-foundation.md)
+adds migration 004 after 003. Paid state comes from subscriptions; the reserved
+active_until field described below is historical and no longer grants access.
+Trial dates and trusted-device rules remain unchanged.
+
 **Current extension:** [Trusted devices](trusted-devices.md) adds a mandatory UUID
 to the RPC and checks device registration/history before automatic trial creation.
 Apply migration 003 after 002. The no-argument RPC described below is historical;

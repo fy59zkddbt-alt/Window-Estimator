@@ -25,9 +25,17 @@ const auth: AuthProvider = {
 const controller = new AuthController(auth, async () => {});
 const client = { rpc: async () => {
   const status = sessionStorage.getItem('fixture-status') ?? 'trial';
+  const paid = ['paid', 'cancel_pending', 'past_due'].includes(status);
   const reason = ['device_limit_reached', 'trial_already_used_on_device'].includes(status) ? status : null;
   const remaining = status === 'expired' ? -1000 : 3 * 86_400_000;
-  return { data: { user_id: user.id, status: reason ? 'expired' : status, reason, server_now: new Date().toISOString(), valid_until: new Date(Date.now() + remaining).toISOString() }, error: null, status: 200 };
+  return { data: { user_id: user.id, status: reason ? 'expired' : paid ? 'active' : status, reason, server_now: new Date().toISOString(), valid_until: new Date(Date.now() + remaining).toISOString(), billing: {
+    trialEndsAt: new Date(Date.now() + remaining).toISOString(),
+    subscription: paid ? { status: status === 'past_due' ? 'past_due' : 'active',
+      currentPeriodStart: new Date(Date.now() - 86_400_000).toISOString(),
+      currentPeriodEnd: new Date(Date.now() + remaining).toISOString(),
+      cancelAtPeriodEnd: status === 'cancel_pending',
+      graceEndsAt: status === 'past_due' ? new Date(Date.now() + remaining).toISOString() : null } : null,
+  } }, error: null, status: 200 };
 } } as unknown as SupabaseClient;
 const deviceId = new BrowserDeviceIdentity(localStorage).getId();
 const access = new AccessController(user.id, new SupabaseEntitlementProvider(client, () => true, () => deviceId),
@@ -36,7 +44,7 @@ const db = new EstimatorDatabase('entitlement-browser-fixture');
 const props = { repository: new DexieCalculationRepository(db, user.id), settingsRepository: new DexieCalculatorSettingsRepository(db, user.id),
   documentSettingsRepository: new DexieDocumentSettingsRepository(db, user.id), renderProposalPdf: async () => new Blob() };
 createRoot(document.getElementById('root')!).render(<StrictMode>
-  <p>Тестовый сервер доступа:</p>{['trial', 'expired', 'blocked', 'active', 'device_limit_reached', 'trial_already_used_on_device'].map((status) => <button key={status} onClick={() => {
+  <p>Тестовый сервер доступа:</p>{['trial', 'expired', 'blocked', 'active', 'paid', 'cancel_pending', 'past_due', 'device_limit_reached', 'trial_already_used_on_device'].map((status) => <button key={status} onClick={() => {
     sessionStorage.setItem('fixture-status', status); void access.check();
   }}>{status}</button>)}
   <AuthGate controller={controller}>{() => <AccessGate controller={access}><App {...props} /></AccessGate>}</AuthGate>

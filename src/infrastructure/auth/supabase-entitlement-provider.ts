@@ -16,7 +16,7 @@ export class SupabaseEntitlementProvider implements EntitlementProvider {
       throw new Error('Не удалось проверить доступ на сервере.');
     }
     const row = result.data;
-    return decodeEntitlement({ userId: row?.user_id, status: row?.status, reason: row?.reason,
+    return decodeEntitlement({ userId: row?.user_id, status: row?.status, reason: row?.reason, billing: row?.billing,
       serverNow: Date.parse(row?.server_now), validUntil: row?.valid_until === null ? null : Date.parse(row?.valid_until) });
   }
 }

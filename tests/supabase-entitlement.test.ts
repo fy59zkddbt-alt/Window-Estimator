@@ -27,3 +27,14 @@ it('browser cache keeps accounts separate and does not touch calculations/settin
   cache.write('A', record); expect(cache.read('B')).toBeNull(); expect(cache.read('A')).toEqual(record);
   cache.remove('A'); expect(values.get('calculation')).toBe('keep');
 });
+
+it('adapter carries server billing summary without exposing provider identifiers', async () => {
+  const billing = { trialEndsAt: null, subscription: { status: 'active', currentPeriodStart: '2026-10-03T00:00:00Z',
+    currentPeriodEnd: '2026-11-03T00:00:00Z', cancelAtPeriodEnd: false, graceEndsAt: null, provider_customer_id: 'secret' } };
+  const rpc = vi.fn(async () => ({ data: { user_id: 'A', status: 'active', server_now: '2026-10-03T00:00:00Z',
+    valid_until: '2026-11-03T00:00:00Z', billing }, error: null, status: 200 }));
+  const provider = new SupabaseEntitlementProvider({ rpc } as unknown as SupabaseClient, () => true, () => 'device');
+  const result = await provider.check();
+  expect(result.billing?.subscription?.currentPeriodEnd).toBe(billing.subscription.currentPeriodEnd);
+  expect(JSON.stringify(result)).not.toContain('secret');
+});

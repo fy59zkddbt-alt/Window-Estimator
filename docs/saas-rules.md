@@ -25,10 +25,12 @@
 - Новый trial не выдаётся на context, где trial уже использовался другим аккаунтом. Проверки выполняет одна server-side RPC; admin override обходит ограничения, но не blocked.
 - Schema/RLS, ограничения и ручная миграция: [Trusted devices](trusted-devices.md).
 
-## Платная подписка — будущий feature
+## Платная подписка — Subscription Foundation
 
 - Paid subscription — рекуррентная.
 - Отмена отключает автопродление; доступ сохраняется до конца оплаченного периода. До конца периода подписку можно возобновить.
 - Payment provider + webhook — source of truth по оплате; entitlement обновляется на сервере.
+- Реализованы server-side модель подписки, grace 72 часа, server-only cancel/resume и read-only billing. Тестовый тариф — 1290 ₽/мес. Реальные платежи пока отсутствуют.
+- Миграция 004 применяется вручную; схема, приоритеты доступа и граница будущего адаптера: [Subscription Foundation](subscription-foundation.md).
 
 Технические детали: [Auth foundation](auth-foundation.md), [Cloud Settings](cloud-settings.md), [Entitlement + trial](entitlement-trial.md). Архитектурные ограничения: [AGENTS.md](../AGENTS.md).
