@@ -6,7 +6,14 @@ import { App } from './ui/App';
 import { DexieCalculatorSettingsRepository } from './infrastructure/storage/dexie-calculator-settings-repository';
 import { DexieDocumentSettingsRepository } from './infrastructure/storage/dexie-document-settings-repository';
 import { AuthController, type AuthUser } from './application/auth/auth';
-import { createSupabaseAuthProvider } from './infrastructure/auth/supabase-auth-provider';
+import { createSupabaseBrowserClient, SupabaseAuthProvider } from './infrastructure/auth/supabase-auth-provider';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { CloudSettingsSync } from './application/settings/cloud-settings';
+import { SupabaseSettingsRepository } from './infrastructure/auth/supabase-settings-repository';
+import { copyCalculatorSettings } from './domain/configuration/calculator-settings';
+import type { CalculatorSettings } from './application/settings/calculator-settings';
+import { normalizeDocumentSettings } from './application/settings/document-settings';
+import { decodeDocumentSettingsCache } from './application/settings/document-settings-cache';
 import { claimAnonymousData } from './infrastructure/storage/local-ownership';
 import { AuthGate } from './ui/AuthGate';
 
@@ -16,20 +23,33 @@ const renderProposalPdf: import('./application/documents/proposal-pdf').Proposal
   const renderer = await import('./infrastructure/pdf/render-proposal-pdf');
   return renderer.renderProposalPdf(document);
 };
-function UserApp({ user }: { user: AuthUser }) {
-  const repositories = useMemo(() => ({
+function UserApp({ user, client }: { user: AuthUser; client: SupabaseClient }) {
+  const repositories = useMemo(() => {
+    const calculatorCache = new DexieCalculatorSettingsRepository(database, user.id);
+    const documentCache = new DexieDocumentSettingsRepository(database, user.id);
+    const decodeCalculator = (value: unknown) => copyCalculatorSettings(value as CalculatorSettings);
+    const calculator = new CloudSettingsSync(user.id, calculatorCache,
+      new SupabaseSettingsRepository(client, user.id, 'calculator_settings', decodeCalculator), decodeCalculator, () => navigator.onLine);
+    const documents = new CloudSettingsSync(user.id, { load: () => documentCache.load(), save: (value) => documentCache.saveCache(value) },
+      new SupabaseSettingsRepository(client, user.id, 'document_settings', decodeDocumentSettingsCache), decodeDocumentSettingsCache, () => navigator.onLine);
+    return {
     repository: new DexieCalculationRepository(database, user.id),
-    settingsRepository: new DexieCalculatorSettingsRepository(database, user.id),
-    documentSettingsRepository: new DexieDocumentSettingsRepository(database, user.id),
-  }), [user.id]);
+    settingsRepository: calculator,
+    documentSettingsRepository: {
+      load: () => documents.load(), reload: () => documents.reload(),
+      save: (value: import('./application/settings/document-settings').DocumentSettings) => documents.save(normalizeDocumentSettings(value)),
+      get notice() { return documents.notice; },
+    },
+  }; }, [user.id, client]);
   return <App {...repositories} renderProposalPdf={renderProposalPdf} />;
 }
 
 function bootstrap() {
   try {
-    const provider = createSupabaseAuthProvider(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+    const client = createSupabaseBrowserClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+    const provider = new SupabaseAuthProvider(client);
     const controller = new AuthController(provider, (userId) => claimAnonymousData(database, userId));
-    return <AuthGate controller={controller}>{(user) => <UserApp key={user.id} user={user} />}</AuthGate>;
+    return <AuthGate controller={controller}>{(user) => <UserApp key={user.id} user={user} client={client} />}</AuthGate>;
   } catch {
     return <main><h1>Window Estimator</h1><p role="alert">Auth не настроен. Задайте VITE_SUPABASE_URL и VITE_SUPABASE_PUBLISHABLE_KEY, затем перезапустите приложение.</p></main>;
   }

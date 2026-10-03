@@ -42,13 +42,14 @@ export function App({ repository, settingsRepository, documentSettingsRepository
         const items = await repository.list();
         const activeId = await repository.getActiveId();
         const loadedSettings = await settingsRepository.load();
+        await documentSettingsRepository.load();
         if (!cancelled) setSettings(loadedSettings);
         if (!cancelled) { setCalculations(items); setCurrent(items.find((item) => item.id === activeId) ?? items[0]); setReady(true); }
       } catch { if (!cancelled) setError('Не удалось открыть хранилище. Данные не удалены. Перезагрузите страницу после устранения ошибки.'); }
       finally { if (!cancelled) setBusy(false); }
     })();
     return () => { cancelled = true; };
-  }, [repository, settingsRepository]);
+  }, [repository, settingsRepository, documentSettingsRepository]);
   async function persist(value: Calculation) {
     await repository.save(value);
     setCurrent(value);
@@ -78,7 +79,9 @@ export function App({ repository, settingsRepository, documentSettingsRepository
     setProposalFile(file); downloadProposal(file);
   }
   if (showDocumentSettings) return <DocumentSettingsScreen repository={documentSettingsRepository} onClose={() => setShowDocumentSettings(false)} />;
-  if (showSettings && settings) return <SettingsScreen initial={settings} onClose={() => setShowSettings(false)} onSave={async (value) => {
+  if (showSettings && settings) return <SettingsScreen initial={settings} notice={settingsRepository.notice ?? ''} onReload={async () => {
+    const value = await (settingsRepository.reload?.() ?? settingsRepository.load()); setSettings(value); return value;
+  }} onClose={() => setShowSettings(false)} onSave={async (value) => {
     await settingsRepository.save(value); setSettings(value);
   }} />;
   if (editor) {

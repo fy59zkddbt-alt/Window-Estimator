@@ -2,6 +2,7 @@ import type { DocumentSettingsRepository } from '../../application/settings/docu
 import { createDefaultDocumentSettings, normalizeDocumentSettings, type DocumentSettings } from '../../domain/documents/document-settings';
 import type { EstimatorDatabase } from './database';
 import { ownedKey } from './local-ownership';
+import { decodeDocumentSettingsCache } from '../../application/settings/document-settings-cache';
 
 const key = 'documentSettings';
 
@@ -14,11 +15,15 @@ export class DexieDocumentSettingsRepository implements DocumentSettingsReposito
   async load(): Promise<DocumentSettings> {
     const record = await this.table.get(this.storageKey);
     if (!record) return createDefaultDocumentSettings();
-    try { return normalizeDocumentSettings(JSON.parse(record.value)); }
+    try { return decodeDocumentSettingsCache(JSON.parse(record.value)); }
     catch { throw new Error('Сохранённые данные для КП повреждены. Исходная запись не изменена.'); }
   }
   async save(settings: DocumentSettings): Promise<void> {
     const value = normalizeDocumentSettings(settings);
+    await this.table.put({ key: this.storageKey, value: JSON.stringify(value) });
+  }
+  async saveCache(settings: DocumentSettings): Promise<void> {
+    const value = decodeDocumentSettingsCache(settings);
     await this.table.put({ key: this.storageKey, value: JSON.stringify(value) });
   }
 }

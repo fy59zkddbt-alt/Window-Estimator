@@ -10,7 +10,8 @@ const rates = [
   ['productMarkupPercent', 'Наценка изделия, %'], ['installationRatePerM2', 'Монтаж, ₽/м²'],
 ] as const;
 
-export function SettingsScreen({ initial, onSave, onClose }: {
+export function SettingsScreen({ initial, onSave, onClose, onReload, notice = '' }: {
+  notice?: string; onReload?: () => Promise<CalculatorSettings>;
   initial: CalculatorSettings; onSave: (settings: CalculatorSettings) => Promise<void>; onClose: () => void;
 }) {
   const [draft, setDraft] = useState(initial);
@@ -29,6 +30,13 @@ export function SettingsScreen({ initial, onSave, onClose }: {
     finally { setBusy(false); }
   }
   return <main><h1>Настройки калькулятора</h1>
+    {notice && <p role="alert">{notice}</p>}
+    {onReload && <button type="button" disabled={busy} onClick={async () => {
+      setBusy(true); setMessage('');
+      try { setDraft(await onReload()); setMessage('Актуальные настройки загружены.'); }
+      catch (reason) { setMessage(reason instanceof Error ? reason.message : 'Ошибка загрузки.'); }
+      finally { setBusy(false); }
+    }}>Загрузить актуальные настройки</button>}
     <p>Тарифы применяются к новым замерам. Сохранённые замеры и их копии используют собственные снимки тарифов.</p>
     <p className="notice">Начальные значения демонстрационные. Проверьте их перед расчётом для клиента.</p>
     <form onSubmit={(event) => { event.preventDefault(); if (!validation) void save(); }}>

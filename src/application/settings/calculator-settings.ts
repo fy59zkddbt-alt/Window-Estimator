@@ -4,6 +4,8 @@ export { createDefaultCalculatorSettings, validateCalculatorSettings } from '../
 export type { CalculatorSettings } from '../../domain/configuration/calculator-settings';
 
 export interface CalculatorSettingsRepository {
+  reload?(): Promise<CalculatorSettings>;
+  readonly notice?: string;
   load(): Promise<CalculatorSettings>;
   save(settings: CalculatorSettings): Promise<void>;
 }

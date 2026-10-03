@@ -2,7 +2,9 @@
 
 Provider: Supabase Auth with the official browser SDK. Server data is limited to
 email identity, provider-managed password credentials and auth sessions. No
-application tables, Calculation upload, cloud settings or server backend are used.
+Calculation upload or server backend are used. This foundation has since been
+extended by [Cloud Settings](cloud-settings.md): only global calculator/document
+settings are synchronized; calculation and client data remain local.
 
 ## Setup
 

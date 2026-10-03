@@ -26,7 +26,14 @@ export function DocumentSettingsScreen({ repository, onClose }: { repository: Do
   }
   return <main><h1>Данные для КП</h1>
     <p>Имя и телефон обязательны. Данные компании можно не заполнять.</p>
-    <p className="muted">Данные сохраняются локально в этом браузере после нажатия «Сохранить данные для КП».</p>
+    <p className="muted">Данные сохраняются в вашем аккаунте после нажатия «Сохранить данные для КП». Для сохранения требуется интернет.</p>
+    {repository.notice && <p role="alert">{repository.notice}</p>}
+    {repository.reload && <button type="button" disabled={busy} onClick={async () => {
+      setBusy(true); setError(''); setMessage('');
+      try { setDraft(await repository.reload!()); setMessage('Актуальные настройки загружены.'); }
+      catch (reason) { setError(reason instanceof Error ? reason.message : 'Ошибка загрузки.'); }
+      finally { setBusy(false); }
+    }}>Загрузить актуальные настройки</button>}
     {busy && <p role="status">Сохранение / загрузка…</p>}
     {draft && <form noValidate onSubmit={(event) => { event.preventDefault(); if (!validation && !busy) void save(); }}>
       <fieldset disabled={busy}><legend>Контакты продавца и компания</legend><div className="fields">

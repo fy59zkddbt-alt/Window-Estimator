@@ -47,11 +47,15 @@ export class SupabaseAuthProvider implements AuthProvider {
 }
 
 export function createSupabaseAuthProvider(url: string | undefined, key: string | undefined): AuthProvider {
+  return new SupabaseAuthProvider(createSupabaseBrowserClient(url, key));
+}
+
+export function createSupabaseBrowserClient(url: string | undefined, key: string | undefined): SupabaseClient {
   // Only modern browser publishable keys are accepted; private/secret/role keys fail closed.
   if (!url || !key?.startsWith('sb_publishable_')) throw new Error('Auth не настроен: задайте URL Supabase и публичный publishable key.');
   const parsed = new URL(url);
   if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(parsed.hostname))) {
     throw new Error('Supabase URL должен использовать HTTPS.');
   }
-  return new SupabaseAuthProvider(createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }));
+  return createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 }
