@@ -2,3 +2,5 @@ node_modules/
 dist/
 coverage/
 *.local
+# Local environment configuration must stay out of Git.
+.env.local
