@@ -18,10 +18,12 @@
 - `CalculatorSettings` и `DocumentSettings` синхронизируются через Supabase: cloud — source of truth, IndexedDB — cache.
 - Existing measurements используют pricing snapshots: новые глобальные настройки не меняют их цену.
 
-## Устройства — будущий feature
+## Устройства — реализованный server-side контроль
 
-- Ориентир: 1 пользователь ≈ до 2 trusted devices.
-- Новый trial не должен автоматически выдаваться на устройстве, где trial уже использовался другим аккаунтом. Точная device logic определяется отдельным feature.
+- Максимум 2 trusted browser/PWA storage contexts на аккаунт; третий не вытесняет прежние.
+- deviceId — локальный случайный UUID контекста установки, без fingerprint/IP/hardware identifiers.
+- Новый trial не выдаётся на context, где trial уже использовался другим аккаунтом. Проверки выполняет одна server-side RPC; admin override обходит ограничения, но не blocked.
+- Schema/RLS, ограничения и ручная миграция: [Trusted devices](trusted-devices.md).
 
 ## Платная подписка — будущий feature
 

@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { AuthController, type AuthProvider } from '../../src/application/auth/auth';
 import { AccessController } from '../../src/application/access/entitlement';
 import { SupabaseEntitlementProvider } from '../../src/infrastructure/auth/supabase-entitlement-provider';
+import { BrowserDeviceIdentity } from '../../src/infrastructure/auth/device-identity';
 import { BrowserEntitlementCache } from '../../src/infrastructure/auth/entitlement-cache';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { AuthGate } from '../../src/ui/AuthGate';
@@ -24,16 +25,18 @@ const auth: AuthProvider = {
 const controller = new AuthController(auth, async () => {});
 const client = { rpc: async () => {
   const status = sessionStorage.getItem('fixture-status') ?? 'trial';
+  const reason = ['device_limit_reached', 'trial_already_used_on_device'].includes(status) ? status : null;
   const remaining = status === 'expired' ? -1000 : 3 * 86_400_000;
-  return { data: { user_id: user.id, status, server_now: new Date().toISOString(), valid_until: new Date(Date.now() + remaining).toISOString() }, error: null, status: 200 };
+  return { data: { user_id: user.id, status: reason ? 'expired' : status, reason, server_now: new Date().toISOString(), valid_until: new Date(Date.now() + remaining).toISOString() }, error: null, status: 200 };
 } } as unknown as SupabaseClient;
-const access = new AccessController(user.id, new SupabaseEntitlementProvider(client, () => true),
-  new BrowserEntitlementCache(localStorage), { wallNow: () => Date.now(), monotonicNow: () => performance.now() });
+const deviceId = new BrowserDeviceIdentity(localStorage).getId();
+const access = new AccessController(user.id, new SupabaseEntitlementProvider(client, () => true, () => deviceId),
+  new BrowserEntitlementCache(localStorage, deviceId), { wallNow: () => Date.now(), monotonicNow: () => performance.now() });
 const db = new EstimatorDatabase('entitlement-browser-fixture');
 const props = { repository: new DexieCalculationRepository(db, user.id), settingsRepository: new DexieCalculatorSettingsRepository(db, user.id),
   documentSettingsRepository: new DexieDocumentSettingsRepository(db, user.id), renderProposalPdf: async () => new Blob() };
 createRoot(document.getElementById('root')!).render(<StrictMode>
-  <p>Тестовый сервер доступа:</p>{['trial', 'expired', 'blocked', 'active'].map((status) => <button key={status} onClick={() => {
+  <p>Тестовый сервер доступа:</p>{['trial', 'expired', 'blocked', 'active', 'device_limit_reached', 'trial_already_used_on_device'].map((status) => <button key={status} onClick={() => {
     sessionStorage.setItem('fixture-status', status); void access.check();
   }}>{status}</button>)}
   <AuthGate controller={controller}>{() => <AccessGate controller={access}><App {...props} /></AccessGate>}</AuthGate>

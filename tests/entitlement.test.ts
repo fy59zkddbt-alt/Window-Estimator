@@ -24,6 +24,21 @@ it.each(['expired', 'blocked'] as const)('%s denies app access and cannot use a 
   s.provider.check.mockRejectedValue(new EntitlementUnavailable()); await s.controller.check();
   expect(s.controller.state.status).toBe(status);
 });
+it.each(['device_limit_reached', 'trial_already_used_on_device'] as const)('%s replaces cached permission and remains denied offline', async (reason) => {
+  const s = setup(); await s.controller.check();
+  s.provider.check.mockResolvedValue({ userId: 'A', status: 'expired', reason, serverNow: server, validUntil: null });
+  await s.controller.check(); expect(s.controller.state.status).toBe(reason);
+  s.provider.check.mockRejectedValue(new EntitlementUnavailable()); await s.controller.check();
+  expect(s.controller.state.status).toBe(reason);
+  const restarted = new AccessController('A', s.provider, s.cache, s.clock);
+  await restarted.check(); expect(restarted.state.status).toBe(reason);
+});
+it('unknown or contradictory server restriction fails closed', async () => {
+  const s = setup(); await s.controller.check();
+  s.provider.check.mockResolvedValue({ userId: 'A', status: 'active', reason: 'device_limit_reached', serverNow: server, validUntil: server + day });
+  await s.controller.check(); expect(s.controller.state.status).toBe('unavailable');
+  expect(s.records.size).toBe(0);
+});
 it('offline grace is strictly less than 24h, including repeated failures and new sessions', async () => {
   const s = setup(); await s.controller.check(); s.advance(day - 1);
   s.provider.check.mockRejectedValue(new EntitlementUnavailable()); await s.controller.check();

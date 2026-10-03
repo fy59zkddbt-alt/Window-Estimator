@@ -1,8 +1,10 @@
+export type AccessRestriction = 'device_limit_reached' | 'trial_already_used_on_device';
 export interface Entitlement {
   userId: string;
   status: 'trial' | 'active' | 'expired' | 'blocked';
   serverNow: number;
   validUntil: number | null;
+  reason?: AccessRestriction;
 }
 export interface EntitlementProvider { check(): Promise<Entitlement> }
 export class EntitlementUnavailable extends Error {}
@@ -18,7 +20,7 @@ export interface EntitlementCache {
 }
 export interface AccessClock { wallNow(): number; monotonicNow(): number }
 export interface AccessState {
-  status: 'checking' | 'allowed' | 'expired' | 'blocked' | 'unavailable';
+  status: 'checking' | 'allowed' | 'expired' | 'blocked' | 'unavailable' | AccessRestriction;
   now?: number;
   entitlement?: Entitlement;
   offline?: boolean;
@@ -34,7 +36,10 @@ export function decodeEntitlement(value: unknown): Entitlement {
   if (typeof e.userId !== 'string' || !e.userId || !['trial', 'active', 'expired', 'blocked'].includes(e.status)
     || !Number.isFinite(e.serverNow) || (e.validUntil !== null && !Number.isFinite(e.validUntil))
     || (['trial', 'active'].includes(e.status) && (e.validUntil === null || e.validUntil <= e.serverNow))) throw new Error('Invalid entitlement');
-  return { userId: e.userId, status: e.status, serverNow: e.serverNow, validUntil: e.validUntil };
+  if (e.reason !== undefined && e.reason !== null
+    && (!['device_limit_reached', 'trial_already_used_on_device'].includes(e.reason) || e.status !== 'expired')) throw new Error('Invalid entitlement');
+  return { userId: e.userId, status: e.status, serverNow: e.serverNow, validUntil: e.validUntil,
+    ...(e.reason ? { reason: e.reason } : {}) };
 }
 
 /** Server decides entitlement; local clocks measure elapsed grace, never create dates. */
@@ -100,7 +105,7 @@ export class AccessController {
     record.observedAt = wall;
     try { this.cache.write(this.userId, record); } catch { /* no persistent offline grant */ }
     const e = record.entitlement;
-    const status = e.status === 'blocked' ? 'blocked' : e.status === 'expired' || (e.validUntil !== null && now >= e.validUntil)
+    const status = e.status === 'blocked' ? 'blocked' : e.reason ? e.reason : e.status === 'expired' || (e.validUntil !== null && now >= e.validUntil)
       ? 'expired' : elapsed >= day ? 'unavailable' : 'allowed';
     this.publish({ status, entitlement: e, now, offline });
   }

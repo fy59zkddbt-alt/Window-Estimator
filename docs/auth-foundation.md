@@ -42,7 +42,8 @@ JavaScript. Future server authorization must validate identity server-side.
 
 Web and standalone/PWA containers may have different session and IndexedDB
 storage. Each container restores its own session or requires a separate login
-with the same account. No shared-container assumption or device limit exists.
+with the same account. No shared-container assumption exists. The separate
+[Trusted devices](trusted-devices.md) layer now limits accounts to two contexts.
 
 ## Local ownership and migration
 
@@ -71,7 +72,7 @@ reassignment and recovery UI are outside this phase.
 Domain geometry/pricing, Measurement, Calculation, ProposalDocument and PDF
 renderer are unchanged. Auth uses an application port and an infrastructure
 adapter, wired only in main.tsx. This foundation is now extended by the separate
-entitlement/trial access layer and Cloud Settings. Payments, trusted devices,
+entitlement/trial access layer, Trusted Devices and Cloud Settings. Payments,
 cloud Calculations, organizations/roles and password reset are not implemented.
 
 References: [React setup](https://supabase.com/docs/guides/auth/quickstarts/react),

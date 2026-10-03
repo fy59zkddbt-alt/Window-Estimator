@@ -1,5 +1,10 @@
 # Entitlement + 14-day trial
 
+**Current extension:** [Trusted devices](trusted-devices.md) adds a mandatory UUID
+to the RPC and checks device registration/history before automatic trial creation.
+Apply migration 003 after 002. The no-argument RPC described below is historical;
+it is removed by 003. Existing trial dates/admin grants remain unchanged.
+
 Auth restores identity/local ownership first. AccessGate then calls the server RPC;
 only trial/active mounts App and its repositories. Expired/blocked unmount the
 working interface without clearing any Calculation, settings or IndexedDB table.

@@ -19,9 +19,13 @@ export function AccessGate({ controller, children }: { controller: AccessControl
   }, [controller]);
   if (state.status !== 'allowed') return <main className="auth-screen"><h1>Window Estimator</h1>
     {state.status === 'checking' ? <p role="status">Проверка доступа…</p> : <>
-      <h2>{state.status === 'expired' ? 'Срок доступа закончился' : state.status === 'blocked' ? 'Доступ заблокирован' : 'Не удалось проверить доступ'}</h2>
+      <h2>{state.status === 'device_limit_reached' ? 'Достигнут лимит доверенных устройств'
+        : state.status === 'trial_already_used_on_device' ? 'Пробный период уже использовался на этом устройстве'
+        : state.status === 'expired' ? 'Срок доступа закончился' : state.status === 'blocked' ? 'Доступ заблокирован' : 'Не удалось проверить доступ'}</h2>
       <p role="alert">{state.status === 'blocked' ? 'Доступ к приложению запрещён.' : state.status === 'expired'
         ? 'Ваши расчёты и настройки сохранены. После восстановления доступа вы сможете продолжить работу.'
+        : state.status === 'device_limit_reached' ? 'Для аккаунта разрешены два доверенных устройства. Войдите с ранее зарегистрированного устройства.'
+        : state.status === 'trial_already_used_on_device' ? 'Новый автоматический пробный период не предоставлен. Ваши локальные данные сохранены.'
         : 'Подключитесь к интернету и повторите проверку. Offline-доступ возможен только в течение 24 часов после успешной проверки и до окончания срока доступа.'}</p>
       {state.status === 'expired' && <p>Оплата будет доступна позже.</p>}
       <button onClick={() => void controller.check()}>Проверить доступ снова</button>
