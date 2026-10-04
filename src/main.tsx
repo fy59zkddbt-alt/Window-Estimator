@@ -22,6 +22,7 @@ import { BrowserEntitlementCache } from './infrastructure/auth/entitlement-cache
 import { AccessGate } from './ui/AccessGate';
 import { BrowserAuthIdentityCache } from './infrastructure/auth/auth-identity-cache';
 import { BrowserDeviceIdentity } from './infrastructure/auth/device-identity';
+import { SupabaseSubscriptionCheckout } from './infrastructure/auth/supabase-checkout';
 
 // Composition root: the only place wiring UI to a concrete storage adapter.
 const database = new EstimatorDatabase();
@@ -55,7 +56,8 @@ function UserAccess({ user, client, deviceId }: { user: AuthUser; client: Supaba
     new SupabaseEntitlementProvider(client, () => navigator.onLine, () => deviceId),
     new BrowserEntitlementCache(window.localStorage, deviceId),
     { wallNow: () => Date.now(), monotonicNow: () => performance.now() }), [user.id, client, deviceId]);
-  return <AccessGate controller={access}><UserApp user={user} client={client} /></AccessGate>;
+  const checkout = useMemo(() => new SupabaseSubscriptionCheckout(client), [client]);
+  return <AccessGate controller={access} checkout={checkout} redirect={(url) => window.location.assign(url)}><UserApp user={user} client={client} /></AccessGate>;
 }
 
 function bootstrap() {

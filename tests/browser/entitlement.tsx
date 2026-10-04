@@ -47,5 +47,12 @@ createRoot(document.getElementById('root')!).render(<StrictMode>
   <p>Тестовый сервер доступа:</p>{['trial', 'expired', 'blocked', 'active', 'paid', 'cancel_pending', 'past_due', 'device_limit_reached', 'trial_already_used_on_device'].map((status) => <button key={status} onClick={() => {
     sessionStorage.setItem('fixture-status', status); void access.check();
   }}>{status}</button>)}
-  <AuthGate controller={controller}>{() => <AccessGate controller={access}><App {...props} /></AccessGate>}</AuthGate>
+  <button onClick={() => sessionStorage.setItem('fixture-checkout-error', 'yes')}>Checkout error fixture</button>
+  <button onClick={() => sessionStorage.removeItem('fixture-checkout-error')}>Checkout success fixture</button>
+  <AuthGate controller={controller}>{() => <AccessGate controller={access}
+    checkout={{ createSubscriptionCheckout: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      if (sessionStorage.getItem('fixture-checkout-error')) throw new Error('Тестовая ошибка создания оплаты.');
+      return { checkoutUrl: `${location.pathname}?checkout=success` };
+    } }} redirect={(url) => location.assign(url)}><App {...props} /></AccessGate>}</AuthGate>
 </StrictMode>);

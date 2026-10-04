@@ -1,10 +1,10 @@
-import type { subscriptionPlan } from './billing';
+import type { subscriptionPlan } from './billing.ts';
 
-/** Server-only port. No implementation or browser composition in this feature.
+/** Server-only port. Never composed into the browser.
  * Caller authenticates ownership; adapter keeps credentials and verifies callbacks.
  */
 export interface PaymentProvider {
-  createCheckout(input: { userId: string; plan: typeof subscriptionPlan; returnUrl: string; idempotencyKey: string }): Promise<{ checkoutUrl: string }>;
+  createCheckout(input: { userId: string; plan: typeof subscriptionPlan; idempotencyKey: string; providerPaymentReference: string }): Promise<{ checkoutUrl: string }>;
   cancelAtPeriodEnd(providerSubscriptionId: string, idempotencyKey: string): Promise<void>;
   resumeSubscription(providerSubscriptionId: string, idempotencyKey: string): Promise<void>;
 }

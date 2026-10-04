@@ -1,0 +1,7 @@
+[functions.subscription-checkout]
+# getUser(token) verifies JWT explicitly, including projects using asymmetric keys.
+verify_jwt = false
+
+[functions.robokassa-result]
+# Provider cannot supply a Supabase JWT. Stub rejects every event without writes.
+verify_jwt = false
