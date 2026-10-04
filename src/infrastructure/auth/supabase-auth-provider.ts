@@ -16,7 +16,8 @@ function authError(error: { code?: string | undefined; message: string }, operat
 }
 
 export class SupabaseAuthProvider implements AuthProvider {
-  constructor(private readonly client: SupabaseClient, private readonly offlineIdentity?: AuthIdentityCache) {}
+  constructor(private readonly client: SupabaseClient, private readonly offlineIdentity?: AuthIdentityCache,
+    private readonly emailRedirectTo?: string) {}
   private remember(user: AuthUser) {
     try { this.offlineIdentity?.write(user); } catch { /* online auth still works */ }
     return user;
@@ -42,7 +43,8 @@ export class SupabaseAuthProvider implements AuthProvider {
     return this.remember(identity(data.user));
   }
   async register(email: string, password: string) {
-    const { data, error } = await this.client.auth.signUp({ email, password });
+    const { data, error } = await this.client.auth.signUp({ email, password,
+      ...(this.emailRedirectTo ? { options: { emailRedirectTo: this.emailRedirectTo } } : {}) });
     if (error) throw authError(error, 'register');
     // Explicit registration -> login flow, even when provider auto-signs-in.
     if (data.session) {

@@ -14,6 +14,11 @@ settings are synchronized; calculation and client data remain local.
 3. Configure the application's deployed URL as the Auth Site URL and allowed
    redirect URL if email confirmation is enabled. Restart Vite after editing env.
 
+Cloudflare Pages production/preview settings and exact callback URL patterns are
+in [Cloudflare Pages deployment](cloudflare-pages.md). Registration explicitly
+returns to `/auth/callback` on the current origin (optional `VITE_APP_ORIGIN`
+override); the existing SDK restores the session there.
+
 Only publishable keys are accepted. Legacy anon JWT keys are deliberately not
 accepted to make accidental service-role configuration fail closed. Never put
 secret/service-role keys in any `VITE_*` variable: Vite embeds these in the bundle.

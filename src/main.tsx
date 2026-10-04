@@ -23,6 +23,7 @@ import { AccessGate } from './ui/AccessGate';
 import { BrowserAuthIdentityCache } from './infrastructure/auth/auth-identity-cache';
 import { BrowserDeviceIdentity } from './infrastructure/auth/device-identity';
 import { SupabaseSubscriptionCheckout } from './infrastructure/auth/supabase-checkout';
+import { authCallbackUrl } from './infrastructure/auth/app-origin';
 
 // Composition root: the only place wiring UI to a concrete storage adapter.
 const database = new EstimatorDatabase();
@@ -64,11 +65,12 @@ function bootstrap() {
   try {
     const client = createSupabaseBrowserClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
     const deviceId = new BrowserDeviceIdentity(window.localStorage).getId();
-    const provider = new SupabaseAuthProvider(client, new BrowserAuthIdentityCache(window.localStorage));
+    const provider = new SupabaseAuthProvider(client, new BrowserAuthIdentityCache(window.localStorage),
+      authCallbackUrl(import.meta.env.VITE_APP_ORIGIN, window.location.origin));
     const controller = new AuthController(provider, (userId) => claimAnonymousData(database, userId));
     return <AuthGate controller={controller}>{(user) => <UserAccess key={user.id} user={user} client={client} deviceId={deviceId} />}</AuthGate>;
   } catch {
-    return <main><h1>Window Estimator</h1><p role="alert">Auth не настроен. Задайте VITE_SUPABASE_URL и VITE_SUPABASE_PUBLISHABLE_KEY, затем перезапустите приложение.</p></main>;
+    return <main><h1>Window Estimator</h1><p role="alert">Auth не настроен. Проверьте VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY и необязательный VITE_APP_ORIGIN, затем перезапустите приложение.</p></main>;
   }
 }
 createRoot(document.getElementById('root')!).render(<StrictMode>{bootstrap()}</StrictMode>);

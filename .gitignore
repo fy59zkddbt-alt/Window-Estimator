@@ -4,3 +4,5 @@ coverage/
 *.local
 # Local environment configuration must stay out of Git.
 .env.local
+# Local Cloudflare Pages emulator state; never deployment input.
+.wrangler/
