@@ -28,6 +28,17 @@ export interface FinishGeometry {
   materials: readonly FinishMaterialGeometry[];
 }
 
+/** Physical pieces shared by both pricing generations; no procurement policy. */
+export function finishInstalledPieces(dimensions: FinishDimensions, element: FinishType): { part: FinishPiece['part']; length: number }[];
+export function finishInstalledPieces(dimensions: FinishDimensions, element: 'slope' | 'sill' | 'drip'):
+  { part: FinishPiece['part'] | 'drip'; length: number }[];
+export function finishInstalledPieces(dimensions: FinishDimensions, element: 'slope' | 'sill' | 'drip'):
+  { part: 'top' | 'left' | 'right' | 'sill' | 'drip'; length: number }[] {
+  return element === 'slope'
+    ? [{ part: 'top', length: dimensions.widthMm }, { part: 'left', length: dimensions.heightMm }, { part: 'right', length: dimensions.heightMm }]
+    : [{ part: element, length: dimensions.widthMm }];
+}
+
 export function roundPurchaseLength(requiredLengthMm: number, purchaseStepMm: number): number {
   if (!Number.isFinite(requiredLengthMm) || requiredLengthMm <= 0 || !Number.isFinite(purchaseStepMm) || purchaseStepMm < 0) throw new Error('Некорректная длина или закупочный шаг.');
   if (purchaseStepMm === 0) return requiredLengthMm;
@@ -47,9 +58,7 @@ export function getFinishGeometry(dimensions: FinishDimensions, materials: reado
   const geometry = materials.map(({ finishType, materialId, sizing }): FinishMaterialGeometry => {
     if (!['slope', 'sill'].includes(finishType)) throw new Error('Неизвестный тип отделки.');
     validateFinishSizing(sizing);
-    const lengths: { part: FinishPiece['part']; length: number }[] = finishType === 'slope'
-      ? [{ part: 'top', length: dimensions.widthMm }, { part: 'left', length: dimensions.heightMm }, { part: 'right', length: dimensions.heightMm }]
-      : [{ part: 'sill', length: dimensions.widthMm }];
+    const lengths = finishInstalledPieces(dimensions, finishType);
     const requiredDepthMm = dimensions.depthMm + sizing.depthAllowanceMm;
     const pieces = lengths.map(({ part, length }) => {
       const requiredLengthMm = length + sizing.lengthAllowancePerPieceMm;
