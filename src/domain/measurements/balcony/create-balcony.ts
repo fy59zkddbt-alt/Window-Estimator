@@ -17,10 +17,14 @@ export function equalBalconySections(widthMm: number, count: number): BalconySec
   positive(widthMm / count);
   return Array.from({ length: count }, (_, i) => ({ id: `section-${i + 1}`, widthMm: widthMm / count, openingType: 'fixed' }));
 }
-export function validateBalcony(value: BalconyMeasurement): void {
+export type BalconyDimensions = Omit<BalconyMeasurement, 'planes' | 'lamination' | 'additionalWorks'> & {
+  planes: readonly (Omit<BalconyPlane, 'sections'> & { sections: readonly { id: string; widthMm: number }[] })[];
+};
+/** Shared dimensions/levels validation; openings are validated by each contract. */
+export function validateBalconyDimensions(value: BalconyDimensions): void {
   if (value.kind !== 'Balcony') throw new Error('Ожидается замер балкона.');
   if (![value.id, value.room, value.name, value.profileId].every((s) => typeof s === 'string' && s.trim())) throw new Error('Заполните помещение, название и профиль.');
-  if (!['pvc', 'aluminium'].includes(value.material) || !['none', 'one_side', 'two_sides'].includes(value.lamination)) throw new Error('Неизвестный материал или ламинация.');
+  if (!['pvc', 'aluminium'].includes(value.material)) throw new Error('Неизвестный материал.');
   if (value.balconyType !== 'L' && value.side !== undefined) throw new Error('Сторона задаётся только для L.');
   const positions = balconyPositions(value.balconyType, value.side);
   if (value.planes.length !== positions.length || new Set(value.planes.map((p) => p.id)).size !== positions.length) throw new Error('Неверный набор плоскостей.');
@@ -32,12 +36,6 @@ export function validateBalcony(value: BalconyMeasurement): void {
     plane.sections.forEach((section) => {
       positive(section.widthMm);
       if (!section.id.trim()) throw new Error('У секции должен быть ID.');
-      if (value.material === 'aluminium') {
-        if (!['fixed', 'sliding'].includes(section.openingType) || section.hingeSide !== undefined || section.hardwareId !== undefined) throw new Error('Алюминий: fixed/sliding без петель и PVC-фурнитуры.');
-      } else {
-        if (section.openingType === 'sliding') throw new Error('PVC не поддерживает sliding.');
-        validateOpeningElement(section);
-      }
     });
     if (!widthsMatch(plane.widthMm, plane.sections.reduce((sum, s) => sum + s.widthMm, 0))) throw new Error(`Сумма ширин секций должна равняться ширине плоскости «${plane.name}».`);
     if (plane.levels.mode === 'twoLevel') {
@@ -45,6 +43,18 @@ export function validateBalcony(value: BalconyMeasurement): void {
       if (plane.levels.splitHeightMm >= plane.heightMm || !['glass', 'sandwich'].includes(plane.levels.lowerFill)) throw new Error('Нижний ярус должен быть ниже полной высоты; выберите заполнение.');
     } else if (plane.levels.mode !== 'oneLevel' || plane.levels.splitHeightMm !== undefined || plane.levels.lowerFill !== undefined) throw new Error('Неверная ярусность.');
   });
+}
+export function validateBalcony(value: BalconyMeasurement): void {
+  validateBalconyDimensions(value);
+  if (!['none', 'one_side', 'two_sides'].includes(value.lamination)) throw new Error('Неизвестная ламинация.');
+  for (const plane of value.planes) for (const section of plane.sections) {
+    if (value.material === 'aluminium') {
+      if (!['fixed', 'sliding'].includes(section.openingType) || section.hingeSide !== undefined || section.hardwareId !== undefined) throw new Error('Алюминий: fixed/sliding без петель и PVC-фурнитуры.');
+    } else {
+      if (section.openingType === 'sliding') throw new Error('PVC не поддерживает sliding.');
+      validateOpeningElement(section);
+    }
+  }
   normalizeAdditionalWorks(value.additionalWorks);
 }
 export function createBalcony(input: BalconyInput): BalconyMeasurement {

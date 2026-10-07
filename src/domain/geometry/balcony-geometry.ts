@@ -2,12 +2,20 @@ import type { BalconyMeasurement, PlanePosition } from '../measurements/balcony/
 import { validateBalcony } from '../measurements/balcony/create-balcony';
 import type { GlazingGeometry, WindowGeometry, SectionGeometry } from './types';
 import { openingSymbols } from './opening-symbols';
+import { validateGlazingMeasurement, type BalconyMeasurement as NextBalcony } from '../measurements/vnext';
 
 export interface BalconyPlaneGeometry extends WindowGeometry { id: string; name: string; position: PlanePosition; sandwichAreaM2: number }
 export interface BalconyGeometry extends GlazingGeometry { sandwichAreaM2: number; planes: readonly BalconyPlaneGeometry[] }
 const area = (w: number, h: number) => (w / 1000) * (h / 1000);
 export function getBalconyGeometry(measurement: BalconyMeasurement): BalconyGeometry {
   validateBalcony(measurement);
+  return calculateBalconyGeometry(measurement);
+}
+export function getBalconyGeometryVNext(measurement: NextBalcony): BalconyGeometry {
+  validateGlazingMeasurement(measurement);
+  return calculateBalconyGeometry(measurement);
+}
+function calculateBalconyGeometry(measurement: BalconyMeasurement | NextBalcony): BalconyGeometry {
   const planes = measurement.planes.map((p): BalconyPlaneGeometry => {
     const lowerHeight = p.levels.mode === 'twoLevel' ? p.levels.splitHeightMm : 0;
     const upperHeight = p.heightMm - lowerHeight;

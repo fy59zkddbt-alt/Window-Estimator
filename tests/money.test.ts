@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { assertMinor, commercialRoundMinor, multiplyMinorByQuantity, percentageMinor, sumMinor } from '../src/domain/money';
+import { assertMinor, commercialRoundMinor, moneyFromRub, multiplyMinorByQuantity, percentageMinor, sumMinor } from '../src/domain/money';
 import type { CommercialRoundingStepRub } from '../src/domain/configuration/vnext/types';
 
 const max = Number.MAX_SAFE_INTEGER;
@@ -109,5 +109,32 @@ describe('reusable exact percentage amount', () => {
   });
   it('rejects percentage overflow', () => {
     expect(() => percentageMinor(max, 101)).toThrow();
+  });
+});
+
+describe('fractional money expressions for completed pricing lines', () => {
+  it('retains fractional kopecks through independent additions and decimal markup', () => {
+    const base = moneyFromRub(0.004);
+    const subtotal = base.plus(base.percentage(50)).plus(base.percentage(50));
+    const total = subtotal.plus(subtotal.percentage(50));
+    expect(total.toRub()).toBeCloseTo(0.012, 12);
+    expect(total.toMinor()).toBe(1);
+    expect(base.toRub()).toBeCloseTo(0.004, 12);
+    expect(moneyFromRub(1.005).toMinor()).toBe(101);
+    expect(moneyFromRub(100).percentage(1.005).toMinor()).toBe(percentageMinor(10000, 1.005));
+  });
+  it('safely handles tiny exponents, zeros and overflowing numeric factors', () => {
+    expect(moneyFromRub(0).times(Number.MAX_VALUE).toMinor()).toBe(0);
+    expect(moneyFromRub(Number.MIN_VALUE).percentage(Number.MIN_VALUE).toMinor()).toBe(0);
+    expect(moneyFromRub(Number.MIN_VALUE).toRub()).toBe(Number.MIN_VALUE);
+    expect(moneyFromRub(1e-7).times(10000000).toMinor()).toBe(100);
+    expect(() => moneyFromRub(Number.MAX_VALUE).toMinor()).toThrow();
+    expect(() => moneyFromRub(1).times(Number.MAX_VALUE).toMinor()).toThrow();
+    expect(() => moneyFromRub(5e13).plus(moneyFromRub(5e13)).toMinor()).toThrow();
+  });
+  it.each([-1, NaN, Infinity, -Infinity])('rejects invalid inputs/factors %s before arithmetic', (invalid) => {
+    expect(() => moneyFromRub(invalid)).toThrow();
+    expect(() => moneyFromRub(0).times(invalid)).toThrow();
+    expect(() => moneyFromRub(0).percentage(invalid)).toThrow();
   });
 });

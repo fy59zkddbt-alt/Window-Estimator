@@ -1,11 +1,10 @@
-import type { GlazingOpening } from '../measurements/shared';
-import type { Rectangle, OpeningSymbol } from './types';
+import type { GeometryOpening, Rectangle, OpeningSymbol } from './types';
 
 /** Symbol coordinates are derived here, not recomputed by a renderer. Interior view.
  * Turn: triangle apex at the hinge side. Tilt: apex at the top, hinges at the bottom.
  * Insets and hinge markers are symbolic; no physical profile thickness is implied.
  */
-export function openingSymbols(rectangle: Rectangle, opening: GlazingOpening): OpeningSymbol[] {
+export function openingSymbols(rectangle: Rectangle, opening: GeometryOpening): OpeningSymbol[] {
   if (opening.openingType === 'fixed') return [];
   const { xMm: x, yMm: y, widthMm: w, heightMm: h } = rectangle;
   if (opening.openingType === 'sliding') return [{ kind: 'sliding', points: [
@@ -30,4 +29,3 @@ export function openingSymbols(rectangle: Rectangle, opening: GlazingOpening): O
   ] });
   return symbols;
 }
-

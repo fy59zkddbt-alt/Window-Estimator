@@ -1,8 +1,8 @@
 import { openingSymbols } from './opening-symbols';
 import { validateWindow } from '../measurements/window/create-window';
 import type { WindowMeasurement } from '../measurements/window/types';
-import type { OpeningElement } from '../measurements/shared';
-import type { SectionGeometry, WindowGeometry } from './types';
+import { validateGlazingMeasurement, type WindowMeasurement as NextWindow } from '../measurements/vnext';
+import type { GeometryOpening, SectionGeometry, WindowGeometry } from './types';
 
 function area(widthMm: number, heightMm: number): number {
   const result = (widthMm / 1000) * (heightMm / 1000);
@@ -12,6 +12,15 @@ function area(widthMm: number, heightMm: number): number {
 
 export function getWindowGeometry(window: WindowMeasurement): WindowGeometry {
   validateWindow(window);
+  return calculateWindowGeometry(window);
+}
+
+export function getWindowGeometryVNext(window: NextWindow): WindowGeometry {
+  validateGlazingMeasurement(window);
+  return calculateWindowGeometry(window);
+}
+
+function calculateWindowGeometry(window: WindowMeasurement | NextWindow): WindowGeometry {
   if (window.windowType === 'balconyBlock') return getBlockGeometry(window);
   const { widthMm, heightMm } = window;
   const transomHeight = window.transom?.heightMm ?? 0;
@@ -32,13 +41,13 @@ export function getWindowGeometry(window: WindowMeasurement): WindowGeometry {
   return { totalAreaM2, activeAreaM2, bounds: { xMm: 0, yMm: 0, widthMm, heightMm }, sections, transom };
 }
 
-function getBlockGeometry(window: Extract<WindowMeasurement, { windowType: 'balconyBlock' }>): WindowGeometry {
+function getBlockGeometry(window: Extract<WindowMeasurement | NextWindow, { windowType: 'balconyBlock' }>): WindowGeometry {
   // Explicit layout rule: common top edge, no inferred sill offset or artificial infill.
   const windows = window.plane.sections.map((section) => ({ element: section, widthMm: section.widthMm, heightMm: window.windowHeightMm, areaM2: area(section.widthMm, window.windowHeightMm) }));
   const door = { element: window.door, widthMm: window.doorWidthMm, heightMm: window.doorHeightMm, areaM2: area(window.doorWidthMm, window.doorHeightMm) };
   // Price areas in stable identity order, so door placement cannot change floating-point summation.
   const allElements = [...windows, door];
-  const ordered: { element: OpeningElement; widthMm: number; heightMm: number; areaM2: number }[] = [...windows];
+  const ordered: { element: { id: string } & GeometryOpening; widthMm: number; heightMm: number; areaM2: number }[] = [...windows];
   const doorIndex = window.doorPosition === 'left' ? 0 : window.doorPosition === 'middle' ? 1 : ordered.length;
   ordered.splice(doorIndex, 0, door);
   let xMm = 0;

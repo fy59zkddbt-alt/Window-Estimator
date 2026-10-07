@@ -59,13 +59,18 @@ export function getWindowOpeningElements(window: WindowMeasurement): readonly Op
   return window.windowType === 'balconyBlock' ? [...window.plane.sections, window.door] : window.plane.sections;
 }
 
-export function validateWindow(window: WindowMeasurement): void {
+type DimensionsOf<T> = T extends WindowMeasurement ? Omit<T, 'plane' | 'door' | 'lamination' | 'additionalWorks'>
+  & { plane: { id: string; sections: readonly { id: string; widthMm: number }[] } }
+  & (T extends { windowType: 'balconyBlock' } ? { door: { id: string } } : object) : never;
+export type WindowDimensions = DimensionsOf<WindowMeasurement>;
+
+/** Shared shape validation, independent of material-specific opening contracts. */
+export function validateWindowDimensions(window: WindowDimensions): void {
   if (window.kind !== 'Window') throw new Error('Ожидается оконный замер.');
   if (![window.id, window.room, window.name, window.profileId, window.plane.id].every((value) => value.trim())) throw new Error('Заполните помещение, название и профиль.');
   if (!['pvc', 'aluminium'].includes(window.material)) throw new Error('Неизвестный материал.');
-  if (!['none', 'one_side', 'two_sides'].includes(window.lamination)) throw new Error('Неизвестная ламинация.');
   const sections = window.plane.sections;
-  sections.forEach(validateSection);
+  sections.forEach((section) => { positive(section.widthMm); if (!section.id.trim()) throw new Error('У секции должен быть ID.'); });
   if (window.windowType === 'balconyBlock') {
     if (sections.length !== 1 && sections.length !== 2) throw new Error('Балконный блок должен содержать 1 или 2 окна.');
     if (!['left', 'middle', 'right'].includes(window.doorPosition)) throw new Error('Выберите положение двери.');
@@ -73,9 +78,9 @@ export function validateWindow(window: WindowMeasurement): void {
     positive(window.doorWidthMm);
     positive(window.doorHeightMm);
     positive(window.windowHeightMm);
-    validateOpeningElement(window.door);
+    if (!window.door.id.trim()) throw new Error('У двери должен быть ID.');
     if (window.widthMm !== undefined || window.heightMm !== undefined || window.transom !== undefined) throw new Error('У балконного блока нет общих входных габаритов и фрамуги.');
-    const elements = getWindowOpeningElements(window);
+    const elements = [...sections, window.door];
     if (new Set(elements.map((element) => element.id)).size !== elements.length) throw new Error('Идентификаторы элементов должны быть уникальными.');
     return;
   }
@@ -91,6 +96,12 @@ export function validateWindow(window: WindowMeasurement): void {
     if ('hingeSide' in window.transom || 'hardwareId' in window.transom) throw new Error('У глухой фрамуги нет петель и фурнитуры.');
     if (window.transom.heightMm >= window.heightMm) throw new Error('Высота фрамуги должна быть меньше высоты окна.');
   }
+}
+
+export function validateWindow(window: WindowMeasurement): void {
+  validateWindowDimensions(window);
+  if (!['none', 'one_side', 'two_sides'].includes(window.lamination)) throw new Error('Неизвестная ламинация.');
+  getWindowOpeningElements(window).forEach(validateOpeningElement);
 }
 
 export function createWindow(input: WindowInput): WindowMeasurement {

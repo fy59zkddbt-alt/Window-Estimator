@@ -6,6 +6,8 @@ import type { AdditionalWork } from '../works/vnext';
 import type { FinishElement, FinishWork } from '../configuration/vnext/types';
 import { positive, uniqueIds } from '../configuration/vnext/validate';
 import { copyAdditionalWorks } from '../works/vnext';
+import { validateWindowDimensions, validateOpeningElement } from './window/create-window';
+import { validateBalconyDimensions } from './balcony/create-balcony';
 
 export type AluminiumPlaneMode = 'sliding' | 'swing';
 type Fixed = { openingType: 'fixed'; hingeSide?: never; hardwareId?: never };
@@ -73,6 +75,23 @@ export function validateAluminiumWindow(value: Extract<WindowMeasurement, { mate
     positive(value.doorWidthMm); positive(value.doorHeightMm); positive(value.windowHeightMm);
     validateAluminiumOpening(value.plane.mode, value.door);
   }
+}
+/** Full glazing validation, including legacy shape invariants and vNext options. */
+export function validateGlazingMeasurement(value: WindowMeasurement | BalconyMeasurement): void {
+  if (!value.colorId.trim() || typeof value.extensions !== 'boolean' || typeof value.connectors !== 'boolean') throw new Error('Укажите цвет и параметры изделия.');
+  copyAdditionalWorks(value.additionalWorks);
+  if (value.kind === 'Window') {
+    validateWindowDimensions(value);
+    if (value.material === 'aluminium') validateAluminiumWindow(value);
+    else {
+      value.plane.sections.forEach(validateOpeningElement);
+      if (value.windowType === 'balconyBlock') validateOpeningElement(value.door);
+    }
+  } else if (value.kind === 'Balcony') {
+    validateBalconyDimensions(value);
+    if (value.material === 'aluminium') value.planes.forEach(validateAluminiumPlane);
+    else value.planes.forEach((plane) => plane.sections.forEach(validateOpeningElement));
+  } else throw new Error('Ожидается замер остекления.');
 }
 export function validateFinishMeasurement(value: WindowFinishMeasurement): void {
   if (value.kind !== 'WindowFinish' || !value.id.trim() || !value.room.trim() || !value.name.trim()) throw new Error('Укажите данные отделки.');

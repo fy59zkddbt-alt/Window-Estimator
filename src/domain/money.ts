@@ -44,6 +44,71 @@ function decimalRatio(value: number): { numerator: bigint; denominator: bigint }
     : { numerator: digits * 10n ** BigInt(-scale), denominator: 1n };
 }
 
+/** Transient exact money expression. Only numbers from toRub/toMinor may enter DTOs.
+ * Unlike the integer helpers, these operations retain fractional kopecks until
+ * a complete pricing line reaches its monetary boundary.
+ */
+export interface ExactMoney {
+  times(factor: number): ExactMoney;
+  percentage(percent: number): ExactMoney;
+  plus(other: ExactMoney): ExactMoney;
+  toMinor(): number;
+  /** Informational RUB breakdown only; never feed this approximation into arithmetic. */
+  toRub(): number;
+}
+
+function nonnegativeFactor(value: number): void {
+  if (!Number.isFinite(value) || value < 0) throw new Error('Ожидается конечное неотрицательное число.');
+}
+
+class MoneyExpression implements ExactMoney {
+  readonly #numerator: bigint;
+  readonly #denominator: bigint;
+  constructor(numerator: bigint, denominator: bigint) {
+    let a = numerator; let b = denominator;
+    while (b !== 0n) { const remainder = a % b; a = b; b = remainder; }
+    this.#numerator = numerator / a;
+    this.#denominator = denominator / a;
+  }
+  times(factor: number): ExactMoney {
+    nonnegativeFactor(factor);
+    const ratio = decimalRatio(factor);
+    return new MoneyExpression(this.#numerator * ratio.numerator, this.#denominator * ratio.denominator);
+  }
+  percentage(percent: number): ExactMoney {
+    nonnegativeFactor(percent);
+    const ratio = decimalRatio(percent);
+    return new MoneyExpression(this.#numerator * ratio.numerator, this.#denominator * ratio.denominator * 100n);
+  }
+  plus(other: ExactMoney): ExactMoney {
+    if (!(other instanceof MoneyExpression)) throw new Error('Некорректное денежное выражение.');
+    return new MoneyExpression(this.#numerator * other.#denominator + other.#numerator * this.#denominator,
+      this.#denominator * other.#denominator);
+  }
+  private assertRange(): void {
+    if (this.#numerator > maxMinor * this.#denominator) throw new Error('Сумма вне безопасного числового диапазона.');
+  }
+  toMinor(): number {
+    this.assertRange();
+    return safeMinor(halfUp(this.#numerator, this.#denominator));
+  }
+  toRub(): number {
+    this.assertRange();
+    // A numeric breakdown is approximate, whereas toMinor always uses exact integers.
+    const numerator = this.#numerator.toString();
+    const denominator = (this.#denominator * 100n).toString();
+    const leading = (digits: string) => Number(digits.slice(0, 16)) / 10 ** (Math.min(16, digits.length) - 1);
+    return Number(`${leading(numerator) / leading(denominator)}e${numerator.length - denominator.length}`);
+  }
+}
+
+/** RUB rate may include fractional kopecks; no rounding is performed here. */
+export function moneyFromRub(value: number): ExactMoney {
+  nonnegativeFactor(value);
+  const ratio = decimalRatio(value);
+  return new MoneyExpression(ratio.numerator * 100n, ratio.denominator);
+}
+
 function scaledMinor(amountMinor: number, factor: number, divisor: bigint): number {
   assertMinor(amountMinor);
   const decimal = decimalRatio(factor);

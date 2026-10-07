@@ -1,4 +1,4 @@
-import type { GlazingOpening } from '../measurements/shared';
+import type { GlazingOpening, HingeSide } from '../measurements/shared';
 
 /** Areas in square metres, without intermediate rounding. */
 export interface GlazingGeometry { totalAreaM2: number; activeAreaM2: number }
@@ -6,7 +6,9 @@ export interface GlazingGeometry { totalAreaM2: number; activeAreaM2: number }
 export interface Rectangle { xMm: number; yMm: number; widthMm: number; heightMm: number }
 export interface Point { xMm: number; yMm: number }
 export interface OpeningSymbol { kind: 'turn' | 'tilt' | 'hinge' | 'sliding'; points: readonly Point[] }
-export type SectionGeometry = Rectangle & GlazingOpening & { id: string; areaM2: number; symbols: readonly OpeningSymbol[]; fill?: 'glass' | 'sandwich' };
+/** Aluminium swing has hinges but deliberately has no PVC hardware identity. */
+export type GeometryOpening = GlazingOpening | { openingType: 'turn'; hingeSide: HingeSide; hardwareId?: never };
+export type SectionGeometry = Rectangle & GeometryOpening & { id: string; areaM2: number; symbols: readonly OpeningSymbol[]; fill?: 'glass' | 'sandwich' };
 export interface TransomGeometry extends Rectangle { openingType: 'fixed'; areaM2: number }
 export interface WindowGeometry extends GlazingGeometry {
   /** Display extent only. Never use bounding area to price a balcony block. */
