@@ -1,4 +1,5 @@
 import type { Discount, DiscountInput } from '../../domain/discount';
+import { percentageMinor } from '../../domain/money';
 
 function minor(value: number) {
   if (!Number.isSafeInteger(value) || value < 0) throw new Error('Цена должна быть неотрицательной суммой в целых копейках.');
@@ -32,21 +33,12 @@ export function invalidateDiscount(value: Discount | undefined): Discount {
   if (value?.mode === 'fixedFinalPrice') return { ...value, confirmation: 'needsConfirmation' };
   return value ?? { mode: 'none' };
 }
-function percentAmount(subtotalMinor: number, percent: number): number {
-  // Use the entered decimal percentage exactly, including exponent notation.
-  // Integer arithmetic avoids binary float ties and overflow near MAX_SAFE_INTEGER.
-  const [coefficient, exponent = '0'] = String(percent).split('e');
-  const [whole, fraction = ''] = coefficient!.split('.');
-  const denominator = 10n ** BigInt(fraction.length - Number(exponent) + 2);
-  const numerator = BigInt(subtotalMinor) * BigInt(whole! + fraction);
-  return Number((numerator + denominator / 2n) / denominator);
-}
 export function estimateDiscount(value: Discount | undefined, subtotalMinor: number) {
   const discount = normalizeDiscount(value, subtotalMinor);
   const pending = discount.mode === 'fixedFinalPrice' && discount.confirmation === 'needsConfirmation';
   // Round the discount once to Minor, then subtract integers so the displayed amounts reconcile.
   const discountAmountMinor = pending ? null : discount.mode === 'percent'
-    ? percentAmount(subtotalMinor, discount.discountPercent)
+    ? percentageMinor(subtotalMinor, discount.discountPercent)
     : discount.mode === 'fixedFinalPrice' ? subtotalMinor - discount.fixedFinalPriceMinor : 0;
   return { discount, discountMode: discount.mode, discountAmountMinor,
     finalTotalMinor: discountAmountMinor === null ? null : subtotalMinor - discountAmountMinor,
