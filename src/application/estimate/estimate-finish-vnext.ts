@@ -40,8 +40,8 @@ export function estimateCalculationFinishVNext(calculation: Calculation, measure
   return estimateFinishVNext(measurement, snapshot.configuration, calculation.commercialRoundingStepRub);
 }
 
-/** Future editor boundary: material changes invalidate an existing manual override, metadata changes do not. */
-export function reviseFinishMeasurementVNext(previous: WindowFinishMeasurement, input: WindowFinishMeasurement): WindowFinishMeasurement {
+/** Draft-safe invalidation; incomplete geometry must also invalidate a manual override. */
+export function reviseFinishDraftVNext(previous: WindowFinishMeasurement, input: WindowFinishMeasurement): WindowFinishMeasurement {
   const next = copyDomainValue(input);
   const composition = (value: WindowFinishMeasurement) => JSON.stringify({ width: value.widthMm, height: value.heightMm,
     depth: value.depthMm, side: value.side, work: value.workType,
@@ -49,6 +49,12 @@ export function reviseFinishMeasurementVNext(previous: WindowFinishMeasurement, 
   if (previous.priceState.mode === 'manual' && next.priceState.mode === 'manual' && composition(previous) !== composition(next)) {
     next.priceState.confirmation = 'needsConfirmation';
   }
+  return next;
+}
+
+/** Canonical revision boundary: material changes invalidate manual price, metadata changes do not. */
+export function reviseFinishMeasurementVNext(previous: WindowFinishMeasurement, input: WindowFinishMeasurement): WindowFinishMeasurement {
+  const next = reviseFinishDraftVNext(previous, input);
   validateFinishMeasurement(next);
   return next;
 }

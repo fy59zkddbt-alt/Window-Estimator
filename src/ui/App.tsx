@@ -5,6 +5,7 @@ import type { ActiveCalculationRepository as CalculationRepository } from '../ap
 import { createCalculation, measurementSnapshot, copyMeasurement, deleteMeasurement, estimateCalculation, saveMeasurement, updateCalculationDetails, updateOrderAdditionalWorks } from '../application/estimate/active-calculation';
 import { WindowScreen } from './WindowScreen';
 import { FinishScreen } from './FinishScreen';
+import { finishSeedFromBalconyBlock, type FinishSeed } from '../application/estimate/finish-editor-v2';
 import { BalconyScreen } from './BalconyScreen';
 import './styles.css';
 import { ActiveAdditionalWorksList as AdditionalWorksList, ActiveOrderWorksEditor as OrderWorksEditor } from './ActiveAdditionalWorksEditor';
@@ -17,7 +18,7 @@ import type { DocumentSettingsRepository } from '../application/settings/documen
 import { DocumentSettingsScreen } from './DocumentSettingsScreen';
 import type { ProposalPdfRenderer } from '../application/documents/proposal-pdf';
 
-type Editor = { id: string; kind: 'Window' | 'WindowFinish' | 'Balcony'; initial?: Measurement; snapshot: MeasurementConfiguration };
+type Editor = { id: string; kind: 'Window' | 'WindowFinish' | 'Balcony'; initial?: Measurement; finishSeed?: FinishSeed; snapshot: MeasurementConfiguration };
 const now = () => new Date().toISOString();
 const money = (minor: number | null) => minor === null ? 'Требует уточнения' : new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(minor / 100);
 
@@ -80,7 +81,7 @@ export function App({ repository, settingsRepository, documentSettingsRepository
     const step = current!.commercialRoundingStepRub;
     if (editor.kind === 'Balcony' && snapshot.kind === 'Balcony') return <BalconyScreen key={editor.id} id={editor.id} step={step} configuration={snapshot.configuration} {...(initial?.kind === 'Balcony' ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
     if (editor.kind === 'Window' && snapshot.kind === 'Window') return <WindowScreen key={editor.id} id={editor.id} step={step} configuration={snapshot.configuration} {...(initial?.kind === 'Window' ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
-    if (snapshot.kind === 'WindowFinish') return <FinishScreen key={editor.id} id={editor.id} step={step} configuration={snapshot.configuration} {...(initial?.kind === 'WindowFinish' ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
+    if (snapshot.kind === 'WindowFinish') return <FinishScreen key={editor.id} id={editor.id} step={step} configuration={snapshot.configuration} {...(initial?.kind === 'WindowFinish' ? { initial } : {})} {...(editor.finishSeed ? { seed: editor.finishSeed } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
   }
   const estimate = current ? estimateCalculation(current) : undefined;
   return <main>
@@ -125,6 +126,10 @@ export function App({ repository, settingsRepository, documentSettingsRepository
           <p>Базовая стоимость: {money(line.basePriceMinor)}; допработы: {money(line.additionalWorksTotalMinor)}.</p>
           <AdditionalWorksList works={line.result.measurement.additionalWorks} />
           {screen === 'composition' && <div className="calculation-actions">
+            {measurement.kind === 'Window' && measurement.windowType === 'balconyBlock' && <button disabled={busy} onClick={() => {
+              try { setEditor({ id: crypto.randomUUID(), kind: 'WindowFinish', snapshot: measurementSnapshot(current, 'WindowFinish'), finishSeed: finishSeedFromBalconyBlock(measurement) }); }
+              catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось открыть отделку.'); }
+            }}>Добавить отделку</button>}
             <button disabled={busy} onClick={() => setEditor({ id: line.measurementId, kind: line.kind, initial: line.result.measurement, snapshot: current.configuration[line.measurementId]! })}>Изменить</button>
             <button disabled={busy} onClick={() => void action(() => persist(copyMeasurement(current, line.measurementId, crypto.randomUUID(), now())))}>Копировать</button>
             <button disabled={busy} onClick={() => void action(() => persist(deleteMeasurement(current, line.measurementId, now())))}>Удалить</button>

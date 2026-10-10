@@ -1,90 +1,154 @@
-import { useState } from 'react';
-import { finishFromDraft, finishToDraft } from '../application/estimate/calculator-drafts';
+import { useCallback, useState } from 'react';
+import { changeFinishWork, copyFinishEditorValue, finishDimensionFromText, finishMaterialChoices, finishMaterialFit,
+  manualFinishPriceText, newFinishDraft, readyFinishMeasurement, reviseFinishDraft, setManualFinishPrice, type FinishSeed } from '../application/estimate/finish-editor-v2';
 import { estimateDraft } from '../application/estimate/active-calculation';
 import type { WindowFinishMeasurement } from '../domain/measurements/vnext';
-import type { CommercialRoundingStepRub, FinishConfiguration } from '../domain/configuration/vnext/types';
-import type { AdditionalWork } from '../domain/works/vnext';
-import type { FinishType } from '../domain/configuration/finish-types';
-import { type WindowFinishInput } from '../application/estimate/estimate-finish';
+import type { CommercialRoundingStepRub, FinishConfiguration, FinishElement, FinishWork, FinishWorkType } from '../domain/configuration/vnext/types';
+import { ActiveAdditionalWorksEditor } from './ActiveAdditionalWorksEditor';
+import './styles.css';
 
-import { FinishNumber } from './FinishMaterialEditor';
-import { ActiveAdditionalWorksEditor as AdditionalWorksEditor } from './ActiveAdditionalWorksEditor';
+const elements = { slope: 'Откосы', sill: 'Подоконник', drip: 'Отлив' };
+const workLabels: Record<FinishWorkType, string> = { interiorSlopes: 'Откосы', interiorSlopesAndSill: 'Откосы + подоконник',
+  sillOnly: 'Только подоконник', exteriorSlopes: 'Наружные откосы', exteriorSlopesAndDrip: 'Наружные откосы + отлив', dripOnly: 'Только отлив' };
+const workOptions: readonly FinishWork[] = [
+  { side: 'interior', workType: 'interiorSlopes' }, { side: 'interior', workType: 'interiorSlopesAndSill' }, { side: 'interior', workType: 'sillOnly' },
+  { side: 'exterior', workType: 'exteriorSlopes' }, { side: 'exterior', workType: 'exteriorSlopesAndDrip' }, { side: 'exterior', workType: 'dripOnly' },
+];
+const money = (minor: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' })
+  .formatToParts(BigInt(minor) / 100n).map((part) => part.type === 'fraction' ? String(BigInt(minor) % 100n).padStart(2, '0') : part.value).join('');
+const mm = (value: number) => value.toLocaleString('ru-RU', { maximumSignificantDigits: 21 });
 
+function Dimension({ label, value, onChange, onEditing }: { label: string; value: number; onChange: (value: number) => void; onEditing: (id: string, pending: boolean) => void }) {
+  const [text, setText] = useState<string>();
+  return <label>{label}<input aria-label={label} type="text" inputMode="decimal" enterKeyHint="next"
+    value={text ?? (Number.isFinite(value) ? String(value) : '')}
+    onChange={(e) => { setText(e.target.value); onEditing(label, true); }}
+    onBlur={() => { if (text !== undefined) { onChange(finishDimensionFromText(text)); setText(undefined); onEditing(label, false); } }}
+    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }} /></label>;
+}
 
-const labels = { slope: 'Откосы', sill: 'Подоконник' };
-const parts = { top: 'Верх', left: 'Левая сторона', right: 'Правая сторона', sill: 'Подоконник', drip: 'Отлив' };
-const amount = (value: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(value);
-const length = (value: number) => value.toLocaleString('ru-RU', { maximumFractionDigits: 6 });
-
-export function FinishScreen({ id, initial, configuration: currentConfiguration, step, onSave, onCancel }: { id: string; step: CommercialRoundingStepRub; initial?: WindowFinishMeasurement; configuration: FinishConfiguration; onSave: (result: WindowFinishMeasurement) => Promise<void>; onCancel: () => void }) {
-  const [configuration] = useState(currentConfiguration);
-  const slopeId = configuration.materials.find((item) => item.element === 'slope' && item.side === 'interior')?.id ?? '';
-  const sillId = configuration.materials.find((item) => item.element === 'sill' && item.side === 'interior')?.id ?? '';
-  const [input, setInput] = useState<WindowFinishInput>((initial ? finishToDraft(initial) : undefined) ?? { id, room: 'Кухня', name: 'Отделка окна 1', widthMm: 1400, heightMm: 1500, depthMm: 250,
-    selections: [{ finishType: 'slope', materialId: slopeId }, { finishType: 'sill', materialId: sillId }] });
-  const [chosenIds, setChosenIds] = useState({ slope: (initial ? finishToDraft(initial).selections.find((s) => s.finishType === 'slope')?.materialId : undefined) ?? slopeId, sill: (initial ? finishToDraft(initial).selections.find((s) => s.finishType === 'sill')?.materialId : undefined) ?? sillId });
-  const [works, setWorks] = useState<readonly AdditionalWork[]>(initial?.additionalWorks ?? []);
+export function FinishScreen({ id, initial, seed, configuration: snapshot, step, onSave, onCancel }: {
+  id: string; initial?: WindowFinishMeasurement; seed?: FinishSeed; configuration: FinishConfiguration; step: CommercialRoundingStepRub;
+  onSave: (result: WindowFinishMeasurement) => Promise<void>; onCancel: () => void;
+}) {
+  const [configuration] = useState(() => copyFinishEditorValue(snapshot));
+  const [value, setValue] = useState(() => initial ? copyFinishEditorValue(initial) : newFinishDraft(id, configuration, seed));
+  const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
+  const onEditing = useCallback((id: string, editing: boolean) => setPending((previous) => {
+    const next = new Set(previous); if (editing) next.add(id); else next.delete(id); return next;
+  }), []);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [manualEntry, setManualEntry] = useState(false);
+  const [manualText, setManualText] = useState('');
+  const [manualError, setManualError] = useState('');
   let result: Extract<ReturnType<typeof estimateDraft>, { kind: 'WindowFinish' }> | undefined;
-  let measurement: WindowFinishMeasurement | undefined;
   let error = '';
   try {
-    measurement = finishFromDraft(input, works, initial);
-    const next = estimateDraft(measurement, { kind: 'WindowFinish', configuration }, step);
+    const next = estimateDraft(readyFinishMeasurement(value), { kind: 'WindowFinish', configuration }, step);
     if (next.kind === 'WindowFinish') result = next;
+  } catch (reason) { error = reason instanceof Error ? reason.message : 'Проверьте параметры отделки.'; }
+  const live = pending.size ? undefined : result;
+  if (pending.size) error = 'Завершите ввод размера: нажмите «Далее» или перейдите к следующему полю.';
+  function update(next: WindowFinishMeasurement) { setValue(reviseFinishDraft(value, next)); setMessage(''); }
+  function work(next: FinishWork) { update(changeFinishWork(value, next, configuration)); }
+  function manual() {
+    setManualText(value.priceState.mode === 'manual' ? manualFinishPriceText(value.priceState.finalPriceMinor) : '');
+    setManualEntry(true); setManualError('');
   }
-  catch (reason) { error = reason instanceof Error ? reason.message : 'Проверьте параметры отделки.'; }
-  function edit(patch: Partial<WindowFinishInput>) { setInput({ ...input, ...patch }); setMessage(''); }
-  function toggle(finishType: FinishType, enabled: boolean) {
-    edit({ selections: enabled ? [...input.selections, { finishType, materialId: chosenIds[finishType] }] : input.selections.filter((selection) => selection.finishType !== finishType) });
+  function applyManual() {
+    if (!live) return;
+    try { setValue(setManualFinishPrice(value, manualText)); setManualEntry(false); setManualError(''); }
+    catch (reason) { setManualError(reason instanceof Error ? reason.message : 'Проверьте цену.'); }
   }
   async function save() {
-    if (!result) return;
-    setBusy(true);
-    try { await onSave(measurement!); }
-    catch { setMessage('Не удалось сохранить отделку. Проверьте доступность IndexedDB.'); }
+    if (!live || manualEntry) return;
+    setBusy(true); setMessage('');
+    try { await onSave(live.result.measurement); }
+    catch { setMessage('Не удалось сохранить отделку. Повторите сохранение.'); }
     finally { setBusy(false); }
   }
-  return <main>
-    <header><p className="eyebrow">ОТДЕЛКА ОКНА</p><h1>Откосы и подоконник</h1><p>Самостоятельный замер отделки</p></header>
-    <p className="notice">Материалы и тарифы из снимка настроек замера. Припуски и резерв 20% влияют на материал. Итог отделки включает оплату монтажника и наценку.</p>
-    <div className="layout"><form onSubmit={(event) => event.preventDefault()}>
-      <fieldset disabled={busy}><legend>Помещение и размеры</legend><div className="fields">
-        <label>Помещение<input required value={input.room} onChange={(event) => edit({ room: event.target.value })} /></label>
-        <label>Название<input required value={input.name} onChange={(event) => edit({ name: event.target.value })} /></label>
-        <FinishNumber label="Ширина отделки, мм" value={input.widthMm} onChange={(widthMm) => edit({ widthMm })} />
-        <FinishNumber label="Высота отделки, мм" value={input.heightMm} onChange={(heightMm) => edit({ heightMm })} />
-        <FinishNumber label="Глубина отделки, мм" value={input.depthMm} onChange={(depthMm) => edit({ depthMm })} />
+  return <main className="finish-editor" aria-label="Редактор отделки">
+    <header><p className="eyebrow">ЗАМЕРОК · ЗАМЕР</p><h1>Отделка окна</h1></header>
+    {seed && <p className="notice">Размеры из балконного блока. Измерьте фактическую глубину. Отделка сохранится отдельным замером.</p>}
+    <p className="muted">Материалы и цены из снимка расчёта.</p>
+    <form onSubmit={(e) => e.preventDefault()}><fieldset disabled={busy}>
+      <fieldset><legend>Размеры проёма</legend><div className="fields">
+        <Dimension label="Ширина проёма, мм" value={value.widthMm} onChange={(widthMm) => update({ ...value, widthMm })} onEditing={onEditing} />
+        <Dimension label="Высота проёма, мм" value={value.heightMm} onChange={(heightMm) => update({ ...value, heightMm })} onEditing={onEditing} />
+        <Dimension label="Фактическая глубина, мм" value={value.depthMm} onChange={(depthMm) => update({ ...value, depthMm })} onEditing={onEditing} />
+      </div><p className="muted">По этой глубине калькулятор подбирает подходящую ширину материала.</p></fieldset>
+      <fieldset><legend>Вид отделки</legend><div className="fields">
+        <label>Сторона отделки<select aria-label="Сторона отделки" value={value.side} onChange={(e) => work(e.target.value === 'interior'
+          ? { side: 'interior', workType: 'interiorSlopesAndSill' } : { side: 'exterior', workType: 'exteriorSlopesAndDrip' })}>
+          <option value="interior">Внутренняя отделка</option><option value="exterior">Наружная отделка</option></select></label>
+        <label>Состав работ<select aria-label="Состав работ" value={value.workType} onChange={(e) => { const selected = workOptions.find((option) => option.workType === e.target.value); if (selected) work(selected); }}>
+          {workOptions.filter((option) => option.side === value.side).map((option) => <option key={option.workType} value={option.workType}>{workLabels[option.workType]}</option>)}
+        </select></label>
       </div></fieldset>
-      <fieldset disabled={busy}><legend>Что требуется</legend><div className="fields">{(['slope', 'sill'] as const).map((type) => <label className="checkbox" key={type}><input type="checkbox" checked={input.selections.some((selection) => selection.finishType === type)} onChange={(event) => toggle(type, event.target.checked)} />{labels[type]}</label>)}</div></fieldset>
-      {input.selections.map((selection) => {
-        return <fieldset disabled={busy} key={selection.finishType}><legend>{labels[selection.finishType]}: материал и работа</legend>
-          <label>Материал — {labels[selection.finishType]}<select aria-label={`Материал — ${labels[selection.finishType]}`} value={selection.materialId} onChange={(event) => {
-            const materialId = event.target.value;
-            setChosenIds({ ...chosenIds, [selection.finishType]: materialId });
-            edit({ selections: input.selections.map((item) => item.finishType === selection.finishType ? { ...item, materialId } : item) });
-          }}>{configuration.materials.filter((item) => item.side === 'interior' && item.element === selection.finishType).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        </fieldset>;
-      })}
-      <AdditionalWorksEditor works={works} onChange={setWorks} disabled={busy} />
-    </form><aside><h2>Расчёт отделки</h2>{result ? <>
-      <p className="total">{result.measurementTotalMinor === null ? 'Цена требует уточнения' : amount(result.measurementTotalMinor / 100)}</p>
-      <p>Отделка: {result.basePriceMinor === null ? '—' : amount(result.basePriceMinor / 100)}; дополнительные работы: {amount(result.additionalWorksTotalMinor / 100)}.</p>
-      {'costBasis' in result.result.price && <dl>{[
-        ['Материал', amount(result.result.price.materialCost)], ['Материал с резервом 20%', amount(result.result.price.materialsWithReserve)],
-        ['Оплата монтажника', amount(result.result.price.installerSalary)], ['Себестоимость', amount(result.result.price.costBasis)],
-      ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
-      {result.result.price.clientFinishPriceMinor === null && <p role="alert">{'reason' in result.result.price.priceState ? result.result.price.priceState.reason : 'Ручная цена требует подтверждения.'}</p>}
-      {result.result.geometry.elements.map((quantity) => <details key={quantity.materialId} open className="finish-quantities"><summary>{quantity.element === 'slope' ? 'Откосы' : 'Подоконник'}: размеры</summary>
-        <ul>{quantity.pieces.map((piece) => <li key={piece.part}>{parts[piece.part]}: {length(piece.requiredLengthMm)} × {length(quantity.requiredDepthMm)} мм с припусками</li>)}</ul>
-        <p>Расчётная длина материала: {length(quantity.calculatedMaterialQuantityM)} м; установленная длина для работы: {length(quantity.installedLengthM)} м.</p>
-      </details>)}
-    </> : <p className="validation" role="alert">{error}</p>}
-      <button disabled={busy || !result} onClick={() => void save()}>Сохранить замер</button>
-      <button className="secondary" disabled={busy} onClick={onCancel}>Отмена</button>
-
-      <p role="status" aria-live="polite">{message}</p>
-    </aside></div>
+      <fieldset id="finish-materials"><legend>Материалы</legend>{value.selections.map((selection) => {
+        const choices = finishMaterialChoices(configuration, value.side, selection.element, selection.materialId);
+        const fit = live ? finishMaterialFit(live.result.measurement, configuration, selection.element) : undefined;
+        return <section className="finish-material" key={selection.element}><label>Материал — {elements[selection.element]}<select aria-label={`Материал — ${elements[selection.element]}`} value={selection.materialId}
+          onChange={(e) => update({ ...value, selections: value.selections.map((item) => item.element === selection.element ? { element: item.element, materialId: e.target.value } : item) })}>
+          <option value="" disabled>Выберите материал</option>{choices.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          {!choices.length && <p className="validation">В снимке расчёта нет материала для этого вида отделки. Выберите другой состав работ или создайте новый расчёт после настройки материалов.</p>}
+          {fit?.variant && <><p><strong>Подходящая ширина: {mm(fit.variant.physicalWidthMm)} мм</strong></p>
+            <p className="muted">Для глубины {mm(value.depthMm)} мм выбран {selection.widthVariantId ? 'указанный' : 'минимальный подходящий'} материал шириной {mm(fit.variant.physicalWidthMm)} мм.</p></>}
+          {fit?.material && !fit.variant && <p className="validation">Для глубины {mm(value.depthMm)} мм нет подходящего варианта материала «{fit.material.name}»{selection.widthVariantId ? ' с указанной шириной' : ''}.</p>}
+        </section>;
+      })}</fieldset>
+      <fieldset><legend>Помещение и название</legend><div className="fields">
+        <label>Помещение <span className="muted">Необязательно</span><input placeholder="Кухня, спальня…" value={value.room} onChange={(e) => update({ ...value, room: e.target.value })} /></label>
+        <label>Название <span className="muted">Необязательно</span><input placeholder="Отделка окна 1" value={value.name} onChange={(e) => update({ ...value, name: e.target.value })} /></label>
+      </div></fieldset>
+      <details><summary>Дополнительные параметры</summary><p className="muted">Припуски на раскрой заданы в снимке расчёта. Они влияют на количество материала, а ширина подбирается по фактической глубине.</p>
+        {value.selections.map((selection) => <VariantControl key={selection.element} value={value} element={selection.element} configuration={configuration} onChange={update} />)}
+      </details>
+      <details><summary>Дополнительные работы</summary><p className="muted">Утепление и герметизация добавляются отдельно к цене отделки.</p>
+        <ActiveAdditionalWorksEditor works={value.additionalWorks} onChange={(additionalWorks) => update({ ...value, additionalWorks })} />
+      </details>
+    </fieldset></form>
+    <section className="finish-result" aria-label="Текущая цена" aria-live="polite"><h2>Отделка под ключ</h2>
+      {manualEntry ? <p>Введите ручную цену и нажмите «Применить ручную цену».</p> : live ? <>
+        {live.result.price.priceState.mode === 'manual' && <><p>Цена задана вручную</p>
+          {live.result.price.priceState.confirmation === 'needsConfirmation' && <><p>Прежняя ручная цена: {money(live.result.price.priceState.finalPriceMinor)}</p><p className="validation" role="alert">Параметры изменились. Подтвердите ручную цену повторно.</p></>}</>}
+        {live.basePriceMinor === null ? <div className="validation" role="alert"><strong>Нужно уточнить цену</strong><p>Цена требует уточнения{live.result.price.priceState.mode === 'manual' ? ' до подтверждения ручной цены.' : '.'}</p></div>
+          : <p className="total">{money(live.basePriceMinor)}</p>}
+        {live.result.price.priceState.mode === 'priceRequiresClarification' && <><p>{live.result.price.priceState.reason}</p>
+          <a href="#finish-materials">Изменить материал</a><p className="muted">Можно указать итоговую цену вручную или сохранить замер для уточнения. Изменённые настройки применяются к новым расчётам.</p></>}
+        {live.additionalWorksTotalMinor > 0 && <p>Дополнительные работы: {money(live.additionalWorksTotalMinor)}</p>}
+        {live.additionalWorksTotalMinor > 0 && live.measurementTotalMinor !== null && <p className="editor-total">С работами: {money(live.measurementTotalMinor)}</p>}
+      </> : <p className="validation" role="alert">{error}</p>}
+      <fieldset disabled={busy}>
+        {manualEntry ? <div className="manual-finish-price"><label>Итоговая цена отделки, ₽<input aria-label="Итоговая цена отделки, ₽" type="text" inputMode="decimal" value={manualText} onChange={(e) => { setManualText(e.target.value); setManualError(''); }} /></label>
+          <p className="muted">Конечная цена для клиента. Сумма сохраняется точно, без повторного округления. Дополнительные работы учитываются отдельно.</p>
+          {manualError && <p className="validation" role="alert">{manualError}</p>}
+          <button type="button" disabled={!live} onClick={applyManual}>Применить ручную цену</button>
+          <button className="secondary" type="button" onClick={() => setManualEntry(false)}>Отменить ввод цены</button>
+        </div> : <>
+          <button type="button" disabled={!live} onClick={manual}>{value.priceState.mode === 'manual' ? 'Изменить ручную цену' : 'Указать цену вручную'}</button>
+          {value.priceState.mode === 'manual' && <>
+            {value.priceState.confirmation === 'needsConfirmation' && <button type="button" disabled={!live} onClick={() => {
+              if (value.priceState.mode === 'manual') setValue(setManualFinishPrice(value, manualFinishPriceText(value.priceState.finalPriceMinor)));
+            }}>Подтвердить ручную цену</button>}
+            <button className="secondary" type="button" onClick={() => update({ ...value, priceState: { mode: 'automatic' } })}>Рассчитать автоматически</button>
+          </>}
+        </>}
+      </fieldset>
+    </section>
+    <div className="editor-actions"><button disabled={busy || !live || manualEntry} onClick={() => void save()}>Сохранить замер</button>
+      <button className="secondary" disabled={busy} onClick={onCancel}>Отмена</button></div>
+    {message && <p role="alert" className="validation">{message}</p>}
   </main>;
+}
+
+function VariantControl({ value, element, configuration, onChange }: { value: WindowFinishMeasurement; element: FinishElement; configuration: FinishConfiguration; onChange: (value: WindowFinishMeasurement) => void }) {
+  const selection = value.selections.find((item) => item.element === element)!;
+  const material = configuration.materials.find((item) => item.id === selection.materialId);
+  return <><label>Ширина материала — {elements[element]}<select aria-label={`Ширина материала — ${elements[element]}`} value={selection.widthVariantId ?? ''} onChange={(e) => onChange({ ...value,
+    selections: value.selections.map((item) => item.element !== element ? item : { element, materialId: selection.materialId, ...(e.target.value ? { widthVariantId: e.target.value } : {}) }) })}>
+    <option value="">Автоматический подбор</option>{material?.widthVariants.map((variant) => <option key={variant.id} value={variant.id}>{mm(variant.physicalWidthMm)} мм</option>)}
+    {selection.widthVariantId && !material?.widthVariants.some((variant) => variant.id === selection.widthVariantId) && <option value={selection.widthVariantId}>Прежняя ширина недоступна</option>}
+  </select></label><p className="muted">{elements[element]}: припуск длины на деталь {mm(configuration.allowances[element].lengthMm)} мм; глубины {mm(configuration.allowances[element].depthMm)} мм.</p></>;
 }

@@ -89,3 +89,16 @@ figcaption span, figcaption strong { display: block; margin-top: 4px; }
 .editor-actions { display: grid; gap: 8px; margin: 20px 0; }
 .editor-actions .secondary { margin: 0; }
 @media (max-width: 420px) { .glazing-editor form { padding: 12px; } .glazing-editor h1 { font-size: 28px; } }
+.finish-editor { max-width: 640px; overflow-wrap: anywhere; }
+.finish-editor form, .finish-result { padding: 16px; margin-top: 16px; background: white; border: 1px solid #d6e0db; border-radius: 12px; }
+.finish-editor .fields { grid-template-columns: minmax(0, 1fr); }
+.finish-editor input, .finish-editor select, .finish-editor button, .finish-editor summary { min-height: 48px; max-width: 100%; font-size: 16px; }
+.finish-editor label { margin: 12px 0; font-size: 14px; min-width: 0; }
+.finish-editor fieldset, .finish-editor section { min-width: 0; }
+.finish-editor details { border-top: 1px solid #d6e0db; margin-top: 16px; padding-top: 12px; }
+.finish-editor summary { padding: 12px 0; font-weight: 650; }
+.finish-material + .finish-material { border-top: 1px solid #d6e0db; margin-top: 16px; }
+.finish-result fieldset { display: grid; gap: 8px; margin-bottom: 0; }
+.finish-result a { display: inline-block; min-height: 48px; padding: 12px 0; }
+.finish-editor .total { font-size: 30px; }
+@media (max-width: 420px) { .finish-editor form, .finish-result { padding: 12px; } .finish-editor h1 { font-size: 28px; } }
