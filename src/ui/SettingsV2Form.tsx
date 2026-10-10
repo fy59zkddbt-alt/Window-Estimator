@@ -3,6 +3,7 @@ import type { CalculatorSettings, FinishMaterialConfiguration, ProfileConfigurat
 import type { AdditionalWorkUnit } from '../domain/works/vnext';
 import { duplicateProfile, persistSettingsV2, putWork, removeWork, rubInputToMinor, updateFinishMaterial, updateHardwareActivity, updateInstallation, updateProfile, validateCalculatorSettings } from '../application/settings/settings-v2';
 import { glazingExplanation, percentageHint, productMarkupExplanation } from './settings-hints';
+import { PriceCalibrationAssistant } from './PriceCalibrationAssistant';
 
 const workLabels = {
   interiorSlopes: 'Внутренние откосы', interiorSlopesAndSill: 'Внутренние откосы и подоконник', sillOnly: 'Только подоконник',
@@ -36,6 +37,7 @@ export function SettingsV2Form({ initial, onSave, onReload, onClose, notice = ''
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [reviewing, setReviewing] = useState(false);
+  const [calibratingProfile, setCalibratingProfile] = useState<string>();
   let validation = '';
   try { validateCalculatorSettings(draft); } catch (reason) { validation = reason instanceof Error ? reason.message : 'Проверьте настройки.'; }
   function update(next: CalculatorSettings) { setDraft(next); setMessage(''); }
@@ -56,6 +58,7 @@ export function SettingsV2Form({ initial, onSave, onReload, onClose, notice = ''
       <NumberField label={label} value={item[key]} hint={hint} onChange={(value) => profile({ ...item, [key]: value })} />;
     return <article className="measurement-card" key={item.id} aria-label={item.name}>
       <h3>{item.name || 'Новый профиль'}</h3>
+      {item.material === 'pvc' && <button type="button" disabled={item.status !== 'active'} onClick={() => setCalibratingProfile(item.id)}>Помочь настроить цены</button>}
       <NameField label={item.material === 'pvc' ? 'Название профиля' : 'Название алюминиевой системы'} value={item.name} onChange={(name) => profile({ ...item, name })} />
       <NumberField label="Базовая стоимость, ₽/м²" value={item.basePricePerM2} onChange={(basePricePerM2) => profile({ ...item, basePricePerM2 })}
         hint="Начальная стоимость изделия до опций и общей наценки. Это ещё не итоговая цена для клиента." />
@@ -93,6 +96,10 @@ export function SettingsV2Form({ initial, onSave, onReload, onClose, notice = ''
       </details>
     </article>;
   }
+  if (calibratingProfile) return <PriceCalibrationAssistant settings={draft} initialProfileId={calibratingProfile}
+    onCancel={() => setCalibratingProfile(undefined)} onApply={(next) => {
+      update(next); setCalibratingProfile(undefined); setMessage('Результат применён к черновику. Сохраните настройки. Подтверждение цен не изменено.');
+    }} />;
   return <main className="settings-v2"><h1>Настройки расчёта</h1>
     <p>Настройте цены один раз и проверяйте их при изменении закупочных условий.</p>
     <p className="notice">Настройки v2 подготовлены для нового расчёта. Текущий калькулятор пока использует прежние тарифы; переход будет отдельным этапом. Снимки сохранённых расчётов не меняются.</p>

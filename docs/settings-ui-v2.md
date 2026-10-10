@@ -27,7 +27,7 @@ are unchanged.
 
 ## Production boundary and persistence
 
-Production remains Calculation v3 / legacy editor settings v1 until Feature 7.
+Production remains Calculation v3 / legacy editor settings v1 until Feature 8.
 The existing SettingsScreen caller in App now shows SettingsV2Form. A narrowly
 scoped optional `settingsV2` member in the existing settings payload stages the
 canonical CalculatorSettings v2. All existing v1 glazing/finish values are retained
@@ -54,3 +54,8 @@ editable reserve, obsolete waste, purchase-step or material-markup controls.
 
 No calculation migrations, data resets, calculator/editor transition, PDF work,
 auth/subscription/payments changes or Feature 7 work are part of this feature.
+
+Feature 7 subsequently adds the Settings-only
+[Price Calibration Assistant](price-calibration-assistant.md). It proposes ordinary
+v2 fields and applies them to this form's draft; persistence and confirmation
+continue through the same paths described above.
