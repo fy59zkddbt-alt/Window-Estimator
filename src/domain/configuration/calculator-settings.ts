@@ -3,9 +3,13 @@ import type { FinishConfiguration } from './finish-types';
 import { normalizeFinishMaterial } from './normalize-finish';
 import { demoConfiguration } from './demo-configuration';
 import { demoFinishConfiguration } from './demo-finish-configuration';
+import { copyCalculatorSettings as copyV2 } from './vnext/settings';
+import type { CalculatorSettings as SettingsV2 } from './vnext/types';
 
 export interface CalculatorSettings {
   schemaVersion: 1;
+  /** Staged vNext settings; legacy editor rates remain unchanged until Feature 7. */
+  settingsV2?: SettingsV2;
   glazing: Omit<UserConfiguration, 'profiles'> & {
     profiles: readonly (ProfileConfiguration & { installationRatePerM2: number })[];
   };
@@ -30,6 +34,7 @@ function identities(items: readonly { id: string; name: string }[]): void {
 }
 
 export function validateCalculatorSettings(settings: CalculatorSettings): void {
+  if (settings.settingsV2 !== undefined) copyV2(settings.settingsV2);
   if (settings.schemaVersion !== 1 || settings.glazing.currency !== 'RUB' || settings.finish.currency !== 'RUB') throw new Error('Неизвестный формат настроек.');
   identities(settings.glazing.profiles);
   identities(settings.glazing.hardware);
@@ -55,6 +60,7 @@ export function validateCalculatorSettings(settings: CalculatorSettings): void {
 export function copyCalculatorSettings(settings: CalculatorSettings): CalculatorSettings {
   validateCalculatorSettings(settings);
   return { schemaVersion: 1,
+    ...(settings.settingsV2 === undefined ? {} : { settingsV2: copyV2(settings.settingsV2) }),
     glazing: { currency: 'RUB', profiles: settings.glazing.profiles.map((item) => ({ ...item })), hardware: settings.glazing.hardware.map((item) => ({ ...item })) },
     finish: { currency: 'RUB', materials: settings.finish.materials.map((item) => ({ ...item, sizing: { ...item.sizing },
       pricing: item.pricing.mode === 'simple'

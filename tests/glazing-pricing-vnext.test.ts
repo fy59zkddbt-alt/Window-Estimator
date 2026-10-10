@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { createStarterCalculatorSettings } from '../src/domain/configuration/vnext/settings';
+import { createPricingTestSettings as createStarterCalculatorSettings } from './fixtures/pricing-settings';
 import type { CommercialRoundingStepRub, GlazingConfiguration } from '../src/domain/configuration/vnext/types';
 import { priceInstalledGlazingVNext, type GlazingPricingInput } from '../src/domain/pricing/glazing-pricing-vnext';
 import { estimateCalculationGlazingVNext, estimateGlazingVNext } from '../src/application/estimate/estimate-glazing-vnext';

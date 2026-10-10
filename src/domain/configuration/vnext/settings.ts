@@ -12,24 +12,25 @@ export function confirmExamplePrices(value: CalculatorSettings): CalculatorSetti
 }
 /** Call only for explicit creation/restoration from the example, never on load/save. */
 export function createStarterCalculatorSettings(): CalculatorSettings {
-  const colorRules = [{ colorId: 'white', colorPercent: 0 }, { colorId: 'laminated', colorPercent: 20 }];
+  const colorRules = [{ colorId: 'white', colorPercent: 0 }, { colorId: 'laminated', colorPercent: 10 }, { colorId: 'laminated-two', colorPercent: 25 }];
   return copyCalculatorSettings({
     schemaVersion: 2,
     glazing: {
       currency: 'RUB',
       profiles: [
-        { id: 'pvc-standard', name: 'Стандартный ПВХ 70 мм', status: 'active', material: 'pvc', basePricePerM2: 10000,
-          hardwareActivity: [{ hardwareId: 'standard', activityPercent: 20 }, { hardwareId: 'premium', activityPercent: 30 }],
-          colorRules, extensionPercent: 5, connectorPercent: 5, productMarkupPercent: 20 },
-        { id: 'aluminium-example', name: 'Алюминиевая система — пример', status: 'active', material: 'aluminium', basePricePerM2: 8000,
+        { id: 'pvc-standard', name: 'VEKA Softline 70', status: 'active', material: 'pvc', basePricePerM2: 5700,
+          hardwareActivity: [{ hardwareId: 'standard', activityPercent: 125 }, { hardwareId: 'premium', activityPercent: 30 }],
+          colorRules, extensionPercent: 20, connectorPercent: 5, productMarkupPercent: 40 },
+        { id: 'aluminium-example', name: 'Алюминиевая система — пример', status: 'active', material: 'aluminium', basePricePerM2: 13000,
           activity: { slidingPercent: 15, swingPercent: 25 }, colorRules: [{ colorId: 'white', colorPercent: 0 }],
-          extensionPercent: 5, connectorPercent: 5, productMarkupPercent: 20 },
+          extensionPercent: 5, connectorPercent: 20, productMarkupPercent: 20 },
       ],
-      hardware: [{ id: 'standard', name: 'Стандарт', material: 'pvc', status: 'active' },
+      hardware: [{ id: 'standard', name: 'Mako', material: 'pvc', status: 'active' },
         { id: 'premium', name: 'Премиум', material: 'pvc', status: 'active' }],
       colors: [{ id: 'white', name: 'Белый', status: 'active', materials: ['pvc', 'aluminium'], lamination: 'none' },
-        { id: 'laminated', name: 'Ламинация — пример', status: 'active', materials: ['pvc'], lamination: 'one_side' }],
-      installationRatesPerM2: { pvc: 1000, aluminium: 800 },
+        { id: 'laminated', name: 'Ламинация с одной стороны', status: 'active', materials: ['pvc'], lamination: 'one_side' },
+        { id: 'laminated-two', name: 'Ламинация с двух сторон', status: 'active', materials: ['pvc'], lamination: 'two_sides' }],
+      installationRatesPerM2: { pvc: 3000, aluminium: 3000 },
     },
     defaults: { material: 'pvc', pvcProfileId: 'pvc-standard', hardwareId: 'standard', colorId: 'white', aluminiumSystemId: 'aluminium-example' },
     finish: {

@@ -53,3 +53,16 @@ figcaption span, figcaption strong { display: block; margin-top: 4px; }
 .access-warning { margin: 1rem; padding: 1rem; border: 2px solid #c27a00; background: #fff4d6; color: #513300; border-radius: 8px; }
 .access-warning.urgent { border-color: #b42318; background: #fff0ed; color: #8a1c13; }
 .access-warning button { margin-left: 1rem; }
+.settings-v2 { max-width: 800px; overflow-wrap: anywhere; }
+.settings-v2 form { padding: 16px; }
+.settings-v2 label { margin: 16px 0; font-size: 15px; }
+.settings-v2 input, .settings-v2 select, .settings-v2 button, .settings-v2 summary { min-height: 48px; max-width: 100%; }
+.settings-v2 summary { padding: 14px 0; font-weight: 600; }
+.settings-v2 details { margin-top: 20px; border-top: 1px solid #d6e0db; }
+.settings-v2 .measurement-card { padding: 16px; min-width: 0; }
+.settings-v2 .settings-group { margin: 16px 0; padding: 12px; background: #f3f6f4; border-radius: 8px; }
+.settings-v2 .muted { display: block; font-size: 13px; }
+.settings-v2 .field-error { display: block; color: #832c1a; font-size: 14px; }
+.settings-v2 .example-notice { position: static; margin: 20px 0; padding: 20px; background: #fff4d6; border: 1px solid #c27a00; border-radius: 12px; }
+.settings-v2 input[aria-invalid=true] { border-color: #a14029; }
+@media (max-width: 420px) { .settings-v2 form, .settings-v2 .measurement-card { padding: 12px; } .settings-v2 h1 { font-size: 28px; } }

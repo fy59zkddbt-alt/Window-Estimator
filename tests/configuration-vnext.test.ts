@@ -24,14 +24,14 @@ describe('configuration vNext contracts', () => {
     const settings = createStarterCalculatorSettings();
     expect(settings.schemaVersion).toBe(2);
     expect(settings.commercialRoundingStepRub).toBe(100);
-    expect(settings.glazing.installationRatesPerM2).toEqual({ pvc: 1000, aluminium: 800 });
-    expect(pvc(settings).hardwareActivity.map((relation) => relation.activityPercent)).toEqual([20, 30]);
+    expect(settings.glazing.installationRatesPerM2).toEqual({ pvc: 3000, aluminium: 3000 });
+    expect(pvc(settings).hardwareActivity.map((relation) => relation.activityPercent)).toEqual([125, 30]);
     expect(settings.glazing.profiles[1]).toMatchObject({ material: 'aluminium', activity: { slidingPercent: 15, swingPercent: 25 } });
     expect(pvc(settings)).not.toHaveProperty('activityPercent');
     expect(pvc(settings)).not.toHaveProperty('installationRatePerM2');
     pvc(settings).hardwareActivity[0]!.activityPercent = 99;
     settings.finish.materials[0]!.widthVariants[0]!.physicalWidthMm = 999;
-    expect(pvc(createStarterCalculatorSettings()).hardwareActivity[0]!.activityPercent).toBe(20);
+    expect(pvc(createStarterCalculatorSettings()).hardwareActivity[0]!.activityPercent).toBe(125);
     expect(createStarterCalculatorSettings().finish.materials[0]!.widthVariants[0]!.physicalWidthMm).toBe(200);
   });
 
@@ -92,7 +92,7 @@ describe('configuration vNext contracts', () => {
     s.glazing.colors[0]!.materials = ['aluminium'];
     s.glazing.installationRatesPerM2.pvc = 1;
     expect(snapshot.configuration).not.toEqual(s.glazing);
-    expect(snapshot.configuration).toMatchObject({ profiles: [{ status: 'hidden', hardwareActivity: [{ activityPercent: 20 }, { activityPercent: 30 }] }, {}] });
+    expect(snapshot.configuration).toMatchObject({ profiles: [{ status: 'hidden', hardwareActivity: [{ activityPercent: 125 }, { activityPercent: 30 }] }, {}] });
   });
 
   it.each([-1, NaN, Infinity])('rejects invalid rates/percentages %s', (invalid) => {

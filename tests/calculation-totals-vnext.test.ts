@@ -4,7 +4,7 @@ import { estimateCalculationVNext } from '../src/application/estimate/estimate-c
 import { estimateCalculationGlazingVNext } from '../src/application/estimate/estimate-glazing-vnext';
 import { estimateCalculationFinishVNext } from '../src/application/estimate/estimate-finish-vnext';
 import type { Calculation } from '../src/domain/calculation-vnext';
-import { createStarterCalculatorSettings } from '../src/domain/configuration/vnext/settings';
+import { createPricingTestSettings as createStarterCalculatorSettings } from './fixtures/pricing-settings';
 import type { Measurement, WindowMeasurement, WindowFinishMeasurement, BalconyMeasurement } from '../src/domain/measurements/vnext';
 import type { AdditionalWork } from '../src/domain/works/vnext';
 import * as money from '../src/domain/money';
