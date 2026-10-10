@@ -1,32 +1,41 @@
 import { useState } from 'react';
-import type { BalconyEstimate } from '../domain/measurement-estimate';
+import { balconyFromDraft, balconyToDraft } from '../application/estimate/calculator-drafts';
+import { estimateDraft } from '../application/estimate/active-calculation';
+import type { BalconyMeasurement } from '../domain/measurements/vnext';
+import type { AdditionalWork } from '../domain/works/vnext';
 import type { BalconyPlane, BalconySection } from '../domain/measurements/balcony/types';
-import type { UserConfiguration } from '../domain/configuration/types';
-import { estimateBalcony, type BalconyInput } from '../application/estimate/estimate-balcony';
+import type { GlazingConfiguration as UserConfiguration, CommercialRoundingStepRub } from '../domain/configuration/vnext/types';
+import { type BalconyInput } from '../application/estimate/estimate-balcony';
 import { balconyDraft, changeBalconyShape, changeBalconyMaterial, changePlaneSectionCount, initializePlaneWidth, distributePlane, changeBalconyOpening } from '../application/estimate/balcony-editor';
 import { WindowPreview } from './WindowPreview';
-import { AdditionalWorksEditor } from './AdditionalWorksEditor';
+import { ActiveAdditionalWorksEditor as AdditionalWorksEditor } from './ActiveAdditionalWorksEditor';
 
 const money = (minor: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(minor / 100);
 function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
   return <label>{label}<input type="number" min="0" step="any" value={Number.isFinite(value) ? value : ''} onChange={(e) => onChange(e.target.value === '' ? NaN : Number(e.target.value))} /></label>;
 }
-export function BalconyScreen({ id, initial, configuration: currentConfiguration, onSave, onCancel }: { id: string; initial?: BalconyEstimate; configuration: UserConfiguration; onSave: (value: BalconyEstimate) => Promise<void>; onCancel: () => void }) {
-  const [input, setInput] = useState<BalconyInput>(() => initial?.measurement ?? balconyDraft(id));
+export function BalconyScreen({ id, initial, configuration: currentConfiguration, step, onSave, onCancel }: { id: string; step: CommercialRoundingStepRub; initial?: BalconyMeasurement; configuration: UserConfiguration; onSave: (value: BalconyMeasurement) => Promise<void>; onCancel: () => void }) {
+  const [configuration] = useState(currentConfiguration);
+  const [input, setInput] = useState<BalconyInput>(() => initial ? balconyToDraft(initial, configuration) : balconyDraft(id));
   const [page, setPage] = useState(0);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const [configuration] = useState(initial?.configuration ?? currentConfiguration);
-  let result: BalconyEstimate | undefined;
+  const [works, setWorks] = useState<readonly AdditionalWork[]>(initial?.additionalWorks ?? []);
+  let result: Extract<ReturnType<typeof estimateDraft>, { kind: 'Window' | 'Balcony' }> | undefined;
+  let measurement: BalconyMeasurement | undefined;
   let error = '';
-  try { result = estimateBalcony(input, configuration); } catch (reason) { error = reason instanceof Error ? reason.message : 'Проверьте данные.'; }
+  try {
+    measurement = balconyFromDraft(input, configuration, works, initial);
+    const next = estimateDraft(measurement, { kind: 'Balcony', configuration }, step);
+    if (next.kind !== 'WindowFinish') result = next;
+  } catch (reason) { error = reason instanceof Error ? reason.message : 'Проверьте данные.'; }
   const plane = input.planes[page]!;
   function updatePlane(next: BalconyPlane) { setInput({ ...input, planes: input.planes.map((p, i) => i === page ? next : p) }); }
   function updateSection(index: number, section: BalconySection) { updatePlane({ ...plane, sections: plane.sections.map((s, i) => i === index ? section : s) }); }
   async function save() {
     if (!result) return;
     setBusy(true); setSaveError('');
-    try { await onSave(result); } catch (reason) { setSaveError(reason instanceof Error ? reason.message : 'Не удалось сохранить.'); }
+    try { await onSave(measurement!); } catch (reason) { setSaveError(reason instanceof Error ? reason.message : 'Не удалось сохранить.'); }
     finally { setBusy(false); }
   }
   return <main><h1>Балкон</h1><p className="muted">Тарифы из снимка настроек замера. Вид из помещения; плоскости показаны отдельно. Монтаж включён по общей площади.</p>
@@ -59,13 +68,13 @@ export function BalconyScreen({ id, initial, configuration: currentConfiguration
     <fieldset disabled={busy}><legend>Профиль / система</legend><label>Профиль<select value={input.profileId} onChange={(e) => setInput({ ...input, profileId: e.target.value })}><option value="">Выберите</option>{configuration.profiles.filter((p) => p.material === input.material).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
       <label>Ламинация<select value={input.lamination} onChange={(e) => setInput({ ...input, lamination: e.target.value as BalconyInput['lamination'] })}><option value="none">Нет</option><option value="one_side">Одна сторона</option><option value="two_sides">Две стороны</option></select></label>
     </fieldset>
-    <AdditionalWorksEditor works={input.additionalWorks ?? []} onChange={(additionalWorks) => setInput({ ...input, additionalWorks })} disabled={busy} />
-    </form><aside><h2>Текущая цена</h2>{result ? <><p className="total">{money(result.measurementTotalMinor)}</p>
-      <p>Остекление: {money(result.basePriceMinor)}; допработы: {money(result.additionalWorksTotalMinor)}.</p>
-      <p>Изделие: {money(result.price.productPriceMinor)}; монтаж: {money(result.price.installationPriceMinor)}.</p>
-      <p>Общая площадь: {result.geometry.totalAreaM2.toLocaleString('ru-RU')} м²; активная: {result.geometry.activeAreaM2.toLocaleString('ru-RU')} м²; сэндвич: {result.geometry.sandwichAreaM2.toLocaleString('ru-RU')} м².</p>
+    <AdditionalWorksEditor works={works} onChange={setWorks} disabled={busy} />
+    </form><aside><h2>Текущая цена</h2>{result ? <><p className="total">{money(result.measurementTotalMinor!)}</p>
+      <p>Остекление: {money(result.basePriceMinor!)}; допработы: {money(result.additionalWorksTotalMinor)}.</p>
+      <p>Изделие: {money(result.result.price.productPriceMinor)}; монтаж: {money(result.result.price.installationPriceMinor)}.</p>
+      <p>Общая площадь: {result.result.geometry.totalAreaM2.toLocaleString('ru-RU')} м²; активная: {result.result.geometry.activeAreaM2.toLocaleString('ru-RU')} м²; сэндвич: {('sandwichAreaM2' in result.result.geometry ? result.result.geometry.sandwichAreaM2 : 0).toLocaleString('ru-RU')} м².</p>
       <p className="muted">Сэндвич пока оценивается по общей ставке остекления, без ценовой поправки.</p>
-      {result.geometry.planes.map((p) => <section key={p.id}><h3>{p.name}</h3><p>Площадь: {p.totalAreaM2.toLocaleString('ru-RU')} м².</p><WindowPreview geometry={p} label={`Балкон — ${p.name}`} /></section>)}
+      {('planes' in result.result.geometry ? result.result.geometry.planes : []).map((p) => <section key={p.id}><h3>{p.name}</h3><p>Площадь: {p.totalAreaM2.toLocaleString('ru-RU')} м².</p><WindowPreview geometry={p} label={`Балкон — ${p.name}`} /></section>)}
     </> : <p role="alert" className="validation">{error}</p>}
       {saveError && <p role="alert">{saveError}</p>}<button disabled={busy || !result} onClick={() => void save()}>Сохранить замер</button> <button disabled={busy} onClick={onCancel}>Отмена</button>
     </aside></div></main>;

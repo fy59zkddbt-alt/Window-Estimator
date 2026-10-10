@@ -10,7 +10,7 @@ export { confirmExamplePrices };
 export function openSettingsV2(value: LegacySettings): CalculatorSettings {
   return value.settingsV2 ? copyCalculatorSettings(value.settingsV2) : createStarterCalculatorSettings();
 }
-/** Preserve production v1 rates and use the existing owned, revision-checked repository. */
+/** Preserve the compatibility envelope and use the existing owned, revision-checked repository. */
 export function stageSettingsV2(value: LegacySettings, next: CalculatorSettings): LegacySettings {
   return { ...value, settingsV2: copyCalculatorSettings(next) };
 }

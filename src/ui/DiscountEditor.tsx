@@ -3,9 +3,10 @@ import type { Discount, DiscountInput } from '../domain/discount';
 import { estimateDiscount, setDiscount } from '../application/estimate/discount';
 
 const money = (minor: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(minor / 100);
-export function DiscountEditor({ discount, subtotalMinor, busy, onApply, onConfirm, onReset }: {
+export function DiscountEditor({ discount, subtotalMinor, busy, onApply, onConfirm, onReset, previewDiscount }: {
   discount: Discount; subtotalMinor: number; busy: boolean;
   onApply: (input: DiscountInput) => Promise<void>; onConfirm: () => Promise<void>; onReset: () => Promise<void>;
+  previewDiscount?: (input: DiscountInput) => ReturnType<typeof estimateDiscount>;
 }) {
   const [mode, setMode] = useState<DiscountInput['mode']>(discount.mode);
   const [percent, setPercent] = useState(discount.mode === 'percent' ? String(discount.discountPercent) : '');
@@ -17,7 +18,7 @@ export function DiscountEditor({ discount, subtotalMinor, busy, onApply, onConfi
   try {
     input = mode === 'none' ? { mode } : mode === 'percent' ? { mode, discountPercent: percent.trim() ? Number(percent) : NaN }
       : { mode, fixedFinalPriceMinor: /^\d+(\.\d{0,2})?$/.test(price) ? Math.round(Number(price) * 100) : NaN };
-    preview = estimateDiscount(setDiscount(input, subtotalMinor), subtotalMinor);
+    preview = previewDiscount ? previewDiscount(input) : estimateDiscount(setDiscount(input, subtotalMinor), subtotalMinor);
   } catch (reason) { error = reason instanceof Error ? reason.message : 'Проверьте скидку.'; }
   return <section><h3>Скидка / Итоговая цена</h3>
     {current.fixedFinalPriceConfirmation === 'needsConfirmation' && <div role="alert" className="notice">

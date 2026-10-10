@@ -1,29 +1,27 @@
 import { useEffect, useState } from 'react';
-import type { Calculation } from '../domain/calculation';
-import type { MeasurementEstimate } from '../domain/measurement-estimate';
-import { type CalculationRepository, isWindowEstimate, isFinishEstimate, isBalconyEstimate } from '../application/estimate/calculation-repository';
-import { createCalculation, copyMeasurement, deleteMeasurement, estimateCalculation, saveMeasurement, updateCalculationDetails, updateOrderAdditionalWorks } from '../application/estimate/calculation-service';
+import type { Calculation, MeasurementConfiguration } from '../domain/calculation-vnext';
+import type { Measurement } from '../domain/measurements/vnext';
+import type { ActiveCalculationRepository as CalculationRepository } from '../application/estimate/active-calculation';
+import { createCalculation, measurementSnapshot, copyMeasurement, deleteMeasurement, estimateCalculation, saveMeasurement, updateCalculationDetails, updateOrderAdditionalWorks } from '../application/estimate/active-calculation';
 import { WindowScreen } from './WindowScreen';
 import { FinishScreen } from './FinishScreen';
 import { BalconyScreen } from './BalconyScreen';
 import './styles.css';
-import { AdditionalWorksList, OrderWorksEditor } from './AdditionalWorksEditor';
+import { ActiveAdditionalWorksList as AdditionalWorksList, ActiveOrderWorksEditor as OrderWorksEditor } from './ActiveAdditionalWorksEditor';
 import { DiscountEditor } from './DiscountEditor';
-import { updateCalculationDiscount, confirmFixedFinalPrice, resetCalculationDiscount } from '../application/estimate/calculation-service';
-import { createSettingsSnapshot, type CalculatorSettings, type CalculatorSettingsRepository } from '../application/settings/calculator-settings';
-import { SettingsScreen } from './SettingsScreen';
+import { updateCalculationDiscount, confirmFixedFinalPrice, resetCalculationDiscount } from '../application/estimate/active-calculation';
+import type { CalculatorSettings } from '../domain/configuration/vnext/types';
+import type { ActiveSettingsRepository as CalculatorSettingsRepository } from '../application/settings/active-calculator-settings';
+import { SettingsV2Form as SettingsScreen } from './SettingsV2Form';
 import type { DocumentSettingsRepository } from '../application/settings/document-settings';
 import { DocumentSettingsScreen } from './DocumentSettingsScreen';
-import { createProposalDocument } from '../application/documents/create-proposal-document';
-import { proposalFilename, type ProposalPdfRenderer } from '../application/documents/proposal-pdf';
-import { canShareProposal, downloadProposal } from './proposal-file';
+import type { ProposalPdfRenderer } from '../application/documents/proposal-pdf';
 
-type Editor = { id: string; kind: 'Window' | 'WindowFinish' | 'Balcony'; initial?: MeasurementEstimate; snapshot?: ReturnType<typeof createSettingsSnapshot> };
+type Editor = { id: string; kind: 'Window' | 'WindowFinish' | 'Balcony'; initial?: Measurement; snapshot: MeasurementConfiguration };
 const now = () => new Date().toISOString();
-const money = (minor: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(minor / 100);
+const money = (minor: number | null) => minor === null ? 'Требует уточнения' : new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(minor / 100);
 
-export function App({ repository, settingsRepository, documentSettingsRepository, renderProposalPdf }: { repository: CalculationRepository; settingsRepository: CalculatorSettingsRepository; documentSettingsRepository: DocumentSettingsRepository; renderProposalPdf: ProposalPdfRenderer }) {
-  const [proposalFile, setProposalFile] = useState<File>();
+export function App({ repository, settingsRepository, documentSettingsRepository }: { repository: CalculationRepository; settingsRepository: CalculatorSettingsRepository; documentSettingsRepository: DocumentSettingsRepository; renderProposalPdf: ProposalPdfRenderer }) {
   const [showDocumentSettings, setShowDocumentSettings] = useState(false);
   const [settings, setSettings] = useState<CalculatorSettings>();
   const [showSettings, setShowSettings] = useState(false);
@@ -34,15 +32,14 @@ export function App({ repository, settingsRepository, documentSettingsRepository
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
-  useEffect(() => { setProposalFile(undefined); }, [current, screen, showDocumentSettings]);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const items = await repository.list();
-        const activeId = await repository.getActiveId();
         const loadedSettings = await settingsRepository.load();
         await documentSettingsRepository.load();
+        const items = await repository.list();
+        const activeId = await repository.getActiveId();
         if (!cancelled) setSettings(loadedSettings);
         if (!cancelled) { setCalculations(items); setCurrent(items.find((item) => item.id === activeId) ?? items[0]); setReady(true); }
       } catch { if (!cancelled) setError('Не удалось открыть хранилище. Данные не удалены. Перезагрузите страницу после устранения ошибки.'); }
@@ -61,22 +58,15 @@ export function App({ repository, settingsRepository, documentSettingsRepository
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось сохранить изменения.'); }
     finally { setBusy(false); }
   }
-  async function saveEditor(result: MeasurementEstimate) {
-    if (!current || !editor || result.measurement.id !== editor.id) throw new Error('Неверный ID замера.');
-    await persist(saveMeasurement(current, result, now(), editor.initial ? 'edit' : 'add'));
+  async function saveEditor(result: Measurement) {
+    if (!current || !editor || result.id !== editor.id) throw new Error('Неверный ID замера.');
+    await persist(saveMeasurement(current, result, editor.snapshot, now(), editor.initial ? 'edit' : 'add'));
     setEditor(undefined); setScreen('composition');
   }
   function openNewEditor(kind: Editor['kind']) {
-    if (settings) setEditor({ id: crypto.randomUUID(), kind, snapshot: createSettingsSnapshot(settings) });
-  }
-  async function generateProposal() {
     if (!current) return;
-    setProposalFile(undefined);
-    const settings = await documentSettingsRepository.load();
-    const document = createProposalDocument(current, estimateCalculation(current), settings, { id: crypto.randomUUID(), generatedAt: now() });
-    const blob = await renderProposalPdf(document);
-    const file = new File([blob], proposalFilename(document), { type: 'application/pdf' });
-    setProposalFile(file); downloadProposal(file);
+    try { setEditor({ id: crypto.randomUUID(), kind, snapshot: measurementSnapshot(current, kind) }); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось открыть замер.'); }
   }
   if (showDocumentSettings) return <DocumentSettingsScreen repository={documentSettingsRepository} onClose={() => setShowDocumentSettings(false)} />;
   if (showSettings && settings) return <SettingsScreen initial={settings} notice={settingsRepository.notice ?? ''} onReload={async () => {
@@ -86,11 +76,11 @@ export function App({ repository, settingsRepository, documentSettingsRepository
   }} />;
   if (editor) {
     const initial = editor.initial;
-    const snapshot = editor.snapshot ?? createSettingsSnapshot(settings!);
-    if (editor.kind === 'Balcony') return <BalconyScreen key={editor.id} id={editor.id} configuration={snapshot.glazing} {...(initial && isBalconyEstimate(initial) ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
-    return editor.kind === 'Window'
-      ? <WindowScreen key={editor.id} id={editor.id} configuration={snapshot.glazing} {...(initial && isWindowEstimate(initial) ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />
-      : <FinishScreen key={editor.id} id={editor.id} configuration={snapshot.finish} {...(initial && isFinishEstimate(initial) ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
+    const snapshot = editor.snapshot;
+    const step = current!.commercialRoundingStepRub;
+    if (editor.kind === 'Balcony' && snapshot.kind === 'Balcony') return <BalconyScreen key={editor.id} id={editor.id} step={step} configuration={snapshot.configuration} {...(initial?.kind === 'Balcony' ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
+    if (editor.kind === 'Window' && snapshot.kind === 'Window') return <WindowScreen key={editor.id} id={editor.id} step={step} configuration={snapshot.configuration} {...(initial?.kind === 'Window' ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
+    if (snapshot.kind === 'WindowFinish') return <FinishScreen key={editor.id} id={editor.id} step={step} configuration={snapshot.configuration} {...(initial?.kind === 'WindowFinish' ? { initial } : {})} onSave={saveEditor} onCancel={() => setEditor(undefined)} />;
   }
   const estimate = current ? estimateCalculation(current) : undefined;
   return <main>
@@ -99,13 +89,14 @@ export function App({ repository, settingsRepository, documentSettingsRepository
       <div className="calculation-actions">
         <button onClick={() => setShowSettings(true)}>Настройки калькулятора</button>
         <button onClick={() => setShowDocumentSettings(true)}>Данные для КП</button>
-        <button onClick={() => void action(async () => { await persist(createCalculation(crypto.randomUUID(), now())); setScreen('composition'); })}>Новый расчёт</button>
+        <button onClick={() => void action(async () => { await persist(createCalculation(crypto.randomUUID(), now(), settings!)); setScreen('composition'); })}>Новый расчёт</button>
         <label>Сохранённые расчёты<select aria-label="Сохранённые расчёты" value={current?.id ?? ''} onChange={(event) => {
           const id = event.target.value;
           void action(async () => { const loaded = await repository.get(id); if (!loaded) throw new Error('Расчёт не найден.'); await repository.setActiveId(id); setCurrent(loaded); setScreen('composition'); });
         }}><option value="" disabled>Выберите расчёт</option>{calculations.map((item) => <option key={item.id} value={item.id}>{item.clientName || item.objectAddress || 'Расчёт'} · {new Date(item.createdAt).toLocaleString('ru-RU')} · {item.id.slice(0, 8)}</option>)}</select></label>
       </div>
     </fieldset>
+    {settings && !settings.pricesConfirmed && <p className="notice">Цены не проверены. Проверьте настройки и нажмите «Цены проверены».</p>}
     {busy && <p role="status">Сохранение / загрузка…</p>}
     {error && <p role="alert" className="validation">{error}</p>}
     {!current && ready && <p>Создайте расчёт, затем добавьте окно, балкон или отделку окна.</p>}
@@ -118,43 +109,45 @@ export function App({ repository, settingsRepository, documentSettingsRepository
         <button disabled={busy} onClick={() => setScreen('composition')}>К составу расчёта</button>
       </div></section> : <>
         <h2>{screen === 'estimate' ? 'Смета' : 'Состав расчёта'}</h2>
-        {estimate.lines.length === 0 && <p>В расчёте пока нет замеров.</p>}
-        {estimate.lines.map((line) => <article className="measurement-card" key={line.id}>
-          <h3>{line.name} · {line.room}</h3><p>{line.description}</p><p>{line.dimensions}</p><strong>{money(line.totalMinor)}</strong>
-          <p>Базовая стоимость: {money(line.result.basePriceMinor)}; допработы: {money(line.result.additionalWorksTotalMinor)}.</p>
+        {estimate.measurements.length === 0 && <p>В расчёте пока нет замеров.</p>}
+        {estimate.measurements.map((line) => {
+          const measurement = line.result.measurement;
+          return <article className="measurement-card" key={line.measurementId}>
+          <h3>{measurement.name} · {measurement.room}</h3>
+          <p>{measurement.kind === 'WindowFinish' ? measurement.selections.map((selection) => selection.element === 'slope' ? 'Откосы' : selection.element === 'sill' ? 'Подоконник' : 'Отлив').join(' + ')
+            : measurement.kind === 'Balcony' ? `Балкон ${measurement.balconyType} · ${measurement.material === 'pvc' ? 'ПВХ' : 'Алюминий'}`
+              : `${{ single: 'Одностворчатое окно', double: 'Двустворчатое окно', triple: 'Трёхстворчатое окно', balconyBlock: 'Балконный блок' }[measurement.windowType]} · ${measurement.material === 'pvc' ? 'ПВХ' : 'Алюминий'}`}</p>
+          <p>{measurement.kind === 'Balcony' ? measurement.planes.map((plane) => `${plane.name}: ${plane.widthMm} × ${plane.heightMm} мм`).join('; ')
+            : measurement.kind === 'WindowFinish' ? `${measurement.widthMm} × ${measurement.heightMm} × ${measurement.depthMm} мм`
+              : measurement.windowType === 'balconyBlock' ? `Дверь ${measurement.doorWidthMm} × ${measurement.doorHeightMm} мм; окна ${measurement.plane.sections.map((section) => `${section.widthMm} × ${measurement.windowHeightMm}`).join(', ')} мм`
+                : `${measurement.widthMm} × ${measurement.heightMm} мм`}</p>
+          <strong>{money(line.measurementTotalMinor)}</strong>
+          <p>Базовая стоимость: {money(line.basePriceMinor)}; допработы: {money(line.additionalWorksTotalMinor)}.</p>
           <AdditionalWorksList works={line.result.measurement.additionalWorks} />
           {screen === 'composition' && <div className="calculation-actions">
-            <button disabled={busy} onClick={() => setEditor({ id: line.id, kind: line.result.measurement.kind, initial: line.result })}>Изменить</button>
-            <button disabled={busy} onClick={() => void action(() => persist(copyMeasurement(current, line.id, crypto.randomUUID(), now())))}>Копировать</button>
-            <button disabled={busy} onClick={() => void action(() => persist(deleteMeasurement(current, line.id, now())))}>Удалить</button>
+            <button disabled={busy} onClick={() => setEditor({ id: line.measurementId, kind: line.kind, initial: line.result.measurement, snapshot: current.configuration[line.measurementId]! })}>Изменить</button>
+            <button disabled={busy} onClick={() => void action(() => persist(copyMeasurement(current, line.measurementId, crypto.randomUUID(), now())))}>Копировать</button>
+            <button disabled={busy} onClick={() => void action(() => persist(deleteMeasurement(current, line.measurementId, now())))}>Удалить</button>
           </div>}
-        </article>)}
+        </article>; })}
         <OrderWorksEditor key={`works:${current.id}:${current.updatedAt}`} works={current.orderAdditionalWorks} busy={busy} onSave={(works) => action(() => persist(updateOrderAdditionalWorks(current, works, now())))} />
         <AdditionalWorksList works={current.orderAdditionalWorks} />
         <p>Замеры: {money(estimate.measurementsSubtotalMinor)}; работы по заказу: {money(estimate.orderWorksTotalMinor)}.</p>
         <p>Subtotal до скидки: {money(estimate.subtotalMinor)}</p>
-        {screen === 'estimate' && <DiscountEditor key={`discount:${current.id}:${current.updatedAt}`} discount={estimate.discount} subtotalMinor={estimate.subtotalMinor} busy={busy}
+        {screen === 'estimate' && estimate.subtotalMinor !== null && <DiscountEditor key={`discount:${current.id}:${current.updatedAt}`} discount={estimate.discount} subtotalMinor={estimate.subtotalMinor} busy={busy}
+          previewDiscount={(input) => estimateCalculation(updateCalculationDiscount(current, input, current.updatedAt))}
           onApply={(input) => action(() => persist(updateCalculationDiscount(current, input, now())))}
           onConfirm={() => action(() => persist(confirmFixedFinalPrice(current, now())))}
           onReset={() => action(() => persist(resetCalculationDiscount(current, now())))} />}
-        {estimate.finalTotalMinor === null ? <p role="alert" className="validation">Итог не подтверждён. Прежняя фиксированная цена: {money(estimate.fixedFinalPriceMinor!)}. Подтвердите или сбросьте её на экране сметы.</p>
+        {estimate.finalTotalMinor === null ? <p role="alert" className="validation">{estimate.pricingStatus === 'unresolved' ? 'Цена отделки требует уточнения.' : `Итог не подтверждён. Прежняя фиксированная цена: ${money(estimate.fixedFinalPriceMinor)}. Подтвердите или сбросьте её на экране сметы.`}</p>
           : <><p>Скидка: {money(estimate.discountAmountMinor!)}</p><p className="total">Итого: {money(estimate.finalTotalMinor)}</p></>}
         <div className="calculation-actions">
-          <button disabled={busy} onClick={() => setScreen('choose')}>{estimate.lines.length ? 'Добавить ещё' : 'Добавить замер'}</button>
+          <button disabled={busy} onClick={() => setScreen('choose')}>{estimate.measurements.length ? 'Добавить ещё' : 'Добавить замер'}</button>
           {screen === 'composition' ? <button disabled={busy} onClick={() => setScreen('estimate')}>Перейти к смете</button> : <button disabled={busy} onClick={() => setScreen('composition')}>К составу расчёта</button>}
         </div>
         {screen === 'estimate' && <section aria-label="Коммерческое предложение">
-          <button disabled={busy || !estimate.isFinalized || !estimate.lines.length} onClick={() => void action(generateProposal)}>Сформировать КП</button>
-          {proposalFile && <>
-            <p role="status">PDF создан: {proposalFile.name}</p>
-            <button disabled={busy} onClick={() => downloadProposal(proposalFile)}>Скачать PDF</button>
-            {canShareProposal(proposalFile) && <button disabled={busy} onClick={() => {
-              // Invoke share directly from the click to retain browser user activation.
-              void navigator.share({ files: [proposalFile], title: 'Коммерческое предложение' }).catch((reason: unknown) => {
-                if (!(reason instanceof Error && reason.name === 'AbortError')) setError('Не удалось поделиться PDF. Сохраните файл кнопкой «Скачать PDF».');
-              });
-            }}>Поделиться</button>}
-          </>}
+          <button disabled>Сформировать КП</button>
+          <p className="muted">Формирование КП для нового формата расчёта пока недоступно.</p>
         </section>}
       </>}
       <p className="muted">Замеры сохраняются в браузере после «Сохранить замер». Копирование и удаление сохраняются сразу. Незавершённый ввод в редакторе не сохраняется.</p>

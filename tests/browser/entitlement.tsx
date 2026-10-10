@@ -9,9 +9,10 @@ import { BrowserEntitlementCache } from '../../src/infrastructure/auth/entitleme
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { AuthGate } from '../../src/ui/AuthGate';
 import { AccessGate } from '../../src/ui/AccessGate';
+import { ActiveCalculatorSettingsRepository } from '../../src/application/settings/active-calculator-settings';
 import { App } from '../../src/ui/App';
 import { EstimatorDatabase } from '../../src/infrastructure/storage/database';
-import { DexieCalculationRepository } from '../../src/infrastructure/storage/dexie-calculation-repository';
+import { ActiveDexieCalculationRepository } from '../../src/infrastructure/storage/active-calculation-repository';
 import { DexieCalculatorSettingsRepository } from '../../src/infrastructure/storage/dexie-calculator-settings-repository';
 import { DexieDocumentSettingsRepository } from '../../src/infrastructure/storage/dexie-document-settings-repository';
 
@@ -41,7 +42,7 @@ const deviceId = new BrowserDeviceIdentity(localStorage).getId();
 const access = new AccessController(user.id, new SupabaseEntitlementProvider(client, () => true, () => deviceId),
   new BrowserEntitlementCache(localStorage, deviceId), { wallNow: () => Date.now(), monotonicNow: () => performance.now() });
 const db = new EstimatorDatabase('entitlement-browser-fixture');
-const props = { repository: new DexieCalculationRepository(db, user.id), settingsRepository: new DexieCalculatorSettingsRepository(db, user.id),
+const props = { repository: new ActiveDexieCalculationRepository(db, user.id), settingsRepository: new ActiveCalculatorSettingsRepository(new DexieCalculatorSettingsRepository(db, user.id)),
   documentSettingsRepository: new DexieDocumentSettingsRepository(db, user.id), renderProposalPdf: async () => new Blob() };
 createRoot(document.getElementById('root')!).render(<StrictMode>
   <p>Тестовый сервер доступа:</p>{['trial', 'expired', 'blocked', 'active', 'paid', 'cancel_pending', 'past_due', 'device_limit_reached', 'trial_already_used_on_device'].map((status) => <button key={status} onClick={() => {

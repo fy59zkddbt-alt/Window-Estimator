@@ -18,7 +18,7 @@ export type GlazingEstimateVNext = {
   | { measurement: BalconyMeasurement; geometry: BalconyGeometry }
 );
 
-/** Dedicated vNext entry point; production v3 estimates/totals remain unchanged. */
+/** Canonical vNext glazing entry point, also used by production Calculation totals. */
 export function estimateGlazingVNext(input: GlazingMeasurement, configuration: GlazingConfiguration,
   stepRub: CommercialRoundingStepRub): GlazingEstimateVNext {
   const measurement = copyDomainValue(input);

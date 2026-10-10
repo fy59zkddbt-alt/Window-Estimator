@@ -8,7 +8,7 @@ import type { CalculatorSettings as SettingsV2 } from './vnext/types';
 
 export interface CalculatorSettings {
   schemaVersion: 1;
-  /** Staged vNext settings; legacy editor rates remain unchanged until Feature 7. */
+  /** Active vNext catalog inside the backward-compatible cloud/settings envelope. */
   settingsV2?: SettingsV2;
   glazing: Omit<UserConfiguration, 'profiles'> & {
     profiles: readonly (ProfileConfiguration & { installationRatePerM2: number })[];

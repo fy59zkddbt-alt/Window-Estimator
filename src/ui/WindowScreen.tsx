@@ -1,16 +1,19 @@
 import { useState } from 'react';
-import type { WindowEstimate } from '../domain/measurement-estimate';
-import type { UserConfiguration } from '../domain/configuration/types';
+import { windowFromDraft, windowToDraft } from '../application/estimate/calculator-drafts';
+import { estimateDraft } from '../application/estimate/active-calculation';
+import type { WindowMeasurement } from '../domain/measurements/vnext';
+import type { AdditionalWork } from '../domain/works/vnext';
+import type { GlazingConfiguration as UserConfiguration, CommercialRoundingStepRub } from '../domain/configuration/vnext/types';
 import type { HingeSide, Lamination, Material, OpeningType, OpeningElement } from '../domain/measurements/shared';
 import type { WindowType } from '../domain/measurements/window/types';
-import { createEqualSections, toWindowInput, createEditorState, changeWindowType, changeBlockWindowCount, estimateDraft, type WindowInput, type WindowDraft } from '../application/estimate/window-editor';
+import { createEqualSections, createEditorState, changeWindowType, changeBlockWindowCount, type WindowInput, type WindowDraft } from '../application/estimate/window-editor';
 
 
 
 import { WindowPreview } from './WindowPreview';
 import { WindowDimensions } from './WindowDimensions';
 import './styles.css';
-import { AdditionalWorksEditor } from './AdditionalWorksEditor';
+import { ActiveAdditionalWorksEditor as AdditionalWorksEditor } from './ActiveAdditionalWorksEditor';
 
 
 const money = (value: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(value);
@@ -18,16 +21,22 @@ const initialInput: WindowInput = {
   id: '', room: 'Кухня', name: 'Окно 1', windowType: 'single', widthMm: 1000, heightMm: 1500,
   material: 'pvc', profileId: 'pvc', lamination: 'none', sections: createEqualSections('single', 1000),
 };
-export function WindowScreen({ id, initial, configuration: currentConfiguration, onSave, onCancel }: { id: string; initial?: WindowEstimate; configuration: UserConfiguration; onSave: (result: WindowEstimate) => Promise<void>; onCancel: () => void }) {
-  const [configuration] = useState(initial?.configuration ?? currentConfiguration);
-  const [editor, setEditor] = useState(() => createEditorState(initial ? toWindowInput(initial.measurement) : { ...initialInput, id, profileId: configuration.profiles.find((item) => item.material === 'pvc')?.id ?? '' }));
+export function WindowScreen({ id, initial, configuration: currentConfiguration, step, onSave, onCancel }: { id: string; step: CommercialRoundingStepRub; initial?: WindowMeasurement; configuration: UserConfiguration; onSave: (result: WindowMeasurement) => Promise<void>; onCancel: () => void }) {
+  const [configuration] = useState(currentConfiguration);
+  const [editor, setEditor] = useState(() => createEditorState(initial ? windowToDraft(initial, configuration) : { ...initialInput, id, profileId: configuration.profiles.find((item) => item.material === 'pvc')?.id ?? '' }));
   const input = editor.input;
+  const [works, setWorks] = useState<readonly AdditionalWork[]>(initial?.additionalWorks ?? []);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  const hardware = configuration.hardware.filter((item) => item.material === input.material);
-  let result: WindowEstimate | undefined;
+  const hardware = configuration.hardware.filter((item) => item.status === 'active' && item.material === input.material);
+  let result: Extract<ReturnType<typeof estimateDraft>, { kind: 'Window' | 'Balcony' }> | undefined;
+  let measurement: WindowMeasurement | undefined;
   let error = '';
-  try { result = estimateDraft(input, configuration); }
+  try {
+    measurement = windowFromDraft(input, configuration, works, initial);
+    const next = estimateDraft(measurement, { kind: 'Window', configuration }, step);
+    if (next.kind !== 'WindowFinish' && !('planes' in next.result.geometry)) result = next;
+  }
   catch (reason) { error = reason instanceof Error ? reason.message : 'Некорректные параметры окна.'; }
 
   function update(input: WindowDraft) { setEditor({ ...editor, input }); setMessage(''); }
@@ -49,7 +58,7 @@ export function WindowScreen({ id, initial, configuration: currentConfiguration,
   function changeMaterial(material: Material) {
     const compatibleHardware = configuration.hardware.find((item) => item.material === material)?.id ?? '';
     const common = { material, profileId: configuration.profiles.find((item) => item.material === material)?.id ?? '',
-      sections: input.sections.map((section) => section.openingType === 'fixed' ? section : { ...section, hardwareId: compatibleHardware }),
+      sections: input.sections.map((section) => section.openingType === 'fixed' ? section : { ...section, openingType: material === 'aluminium' ? 'turn' as const : section.openingType, hardwareId: compatibleHardware }),
     };
     if (input.windowType === 'balconyBlock') update({ ...input, ...common, door: input.door.openingType === 'fixed' ? input.door : { ...input.door, hardwareId: compatibleHardware } });
     else update({ ...input, ...common });
@@ -57,7 +66,7 @@ export function WindowScreen({ id, initial, configuration: currentConfiguration,
   async function save() {
     if (!result) return;
     setBusy(true);
-    try { await onSave(result); }
+    try { await onSave(measurement!); }
     catch { setMessage('Не удалось сохранить расчёт. Проверьте доступность IndexedDB.'); }
     finally { setBusy(false); }
   }
@@ -77,7 +86,7 @@ export function WindowScreen({ id, initial, configuration: currentConfiguration,
       </div><p className="muted">Новые элементы создаются глухими. Single/double/triple создают равные секции при смене типа. Черновик балконного блока хранится отдельно от прямоугольного окна до перезагрузки.</p></fieldset>
       <WindowDimensions input={input} busy={busy} onChange={update} onCountChange={(count) => { setEditor(changeBlockWindowCount(editor, count)); setMessage(''); }} onError={setMessage} />
       <fieldset disabled={busy}><legend>{firstOpeningStep}. Открывания</legend>{openingItems.map(({ element, label }) => <div className="section-row fields" key={element.id}>
-        <label>{label}: открывание<select aria-label={`${label}: открывание`} value={element.openingType} onChange={(e) => changeOpening(element, e.target.value as OpeningType)}><option value="fixed">Глухое</option><option value="turn">Поворотное</option><option value="tilt_turn">Поворотно-откидное</option></select></label>
+        <label>{label}: открывание<select aria-label={`${label}: открывание`} value={element.openingType} onChange={(e) => changeOpening(element, e.target.value as OpeningType)}><option value="fixed">Глухое</option><option value="turn">Поворотное</option>{input.material === 'pvc' && <option value="tilt_turn">Поворотно-откидное</option>}</select></label>
         {element.openingType !== 'fixed' && <label>{label}: петли<select aria-label={`${label}: петли`} value={element.hingeSide} onChange={(e) => editOpening({ ...element, hingeSide: e.target.value as HingeSide })}><option value="left">Слева</option><option value="right">Справа</option></select></label>}
       </div>)}</fieldset>
       <fieldset disabled={busy}><legend>{firstOpeningStep + 1}. Материал и профиль</legend><div className="fields">
@@ -85,22 +94,22 @@ export function WindowScreen({ id, initial, configuration: currentConfiguration,
         <label>Профиль<select aria-label="Профиль" value={input.profileId} onChange={(e) => edit({ profileId: e.target.value })}>{configuration.profiles.filter((item) => item.material === input.material).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
       </div><p className="muted">При смене материала выбираются первый совместимый профиль и фурнитура.</p></fieldset>
       <fieldset disabled={busy}><legend>{firstOpeningStep + 2}. Фурнитура активных элементов</legend><div className="fields">
-        {openingItems.map(({ element, label }) => element.openingType !== 'fixed' && <label key={element.id}>{label}: фурнитура<select aria-label={`${label}: фурнитура`} value={element.hardwareId} onChange={(e) => editOpening({ ...element, hardwareId: e.target.value })}><option value="">Выберите фурнитуру</option>{hardware.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>)}
-      </div><p className="muted">У глухих секций фурнитуры нет. Отдельная надбавка за фурнитуру не начисляется.</p></fieldset>
+        {openingItems.map(({ element, label }) => input.material === 'pvc' && element.openingType !== 'fixed' && <label key={element.id}>{label}: фурнитура<select aria-label={`${label}: фурнитура`} value={element.hardwareId} onChange={(e) => editOpening({ ...element, hardwareId: e.target.value })}><option value="">Выберите фурнитуру</option>{hardware.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>)}
+      </div><p className="muted">Активность ПВХ зависит от пары профиль / фурнитура; алюминиевые окна используют поворотный механизм.</p></fieldset>
       <fieldset disabled={busy}><legend>{firstOpeningStep + 3}. Ламинация</legend><label>Ламинация<select aria-label="Ламинация" value={input.lamination} onChange={(e) => edit({ lamination: e.target.value as Lamination })}><option value="none">Нет</option><option value="one_side">Одна сторона</option><option value="two_sides">Две стороны</option></select></label></fieldset>
-      <AdditionalWorksEditor works={input.additionalWorks ?? []} onChange={(additionalWorks) => update({ ...input, additionalWorks })} disabled={busy} />
+      <AdditionalWorksEditor works={works} onChange={setWorks} disabled={busy} />
     </form><aside>
       <h2>Технический эскиз</h2>
-      {result ? <WindowPreview geometry={result.geometry} /> : <p className="validation" role="alert">{error}</p>}
+      {result ? !('planes' in result.result.geometry) && <WindowPreview geometry={result.result.geometry} /> : <p className="validation" role="alert">{error}</p>}
       <h2>Текущая цена</h2>{result ? <>
-        <p className="total">{money(result.measurementTotalMinor / 100)}</p>
-        <p>Остекление: {money(result.basePriceMinor / 100)}; дополнительные работы: {money(result.additionalWorksTotalMinor / 100)}.</p>
-        <p>Изделие: {money(result.price.productPriceMinor / 100)}; монтаж: {money(result.price.installationPriceMinor / 100)}.</p>
+        <p className="total">{money(result.measurementTotalMinor! / 100)}</p>
+        <p>Остекление: {money(result.basePriceMinor! / 100)}; дополнительные работы: {money(result.additionalWorksTotalMinor / 100)}.</p>
+        <p>Изделие: {money(result.result.price.productPriceMinor / 100)}; монтаж: {money(result.result.price.installationPriceMinor / 100)}.</p>
         <dl>{[
-          ['Общая площадь', `${result.geometry.totalAreaM2.toLocaleString('ru-RU', { maximumFractionDigits: 6 })} м²`],
-          ['Активная площадь', `${result.geometry.activeAreaM2.toLocaleString('ru-RU', { maximumFractionDigits: 6 })} м²`],
-          ['Базовая стоимость', money(result.price.baseAmount)], ['Активные створки', money(result.price.activityAmount)],
-          ['Ламинация', money(result.price.colorAmount)], ['Наценка', money(result.price.markupAmount)],
+          ['Общая площадь', `${result.result.geometry.totalAreaM2.toLocaleString('ru-RU', { maximumFractionDigits: 6 })} м²`],
+          ['Активная площадь', `${result.result.geometry.activeAreaM2.toLocaleString('ru-RU', { maximumFractionDigits: 6 })} м²`],
+          ['Базовая стоимость', money(result.result.price.baseAmount)], ['Активные створки', money(result.result.price.activityAmount)],
+          ['Ламинация', money(result.result.price.colorAmount)], ['Наценка', money(result.result.price.markupAmount)],
         ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
       </> : <p>Цена недоступна: исправьте параметры окна.</p>}
       <button disabled={busy || !result} onClick={() => void save()}>Сохранить замер</button>

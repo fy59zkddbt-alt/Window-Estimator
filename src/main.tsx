@@ -1,7 +1,7 @@
 import { StrictMode, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { EstimatorDatabase } from './infrastructure/storage/database';
-import { DexieCalculationRepository } from './infrastructure/storage/dexie-calculation-repository';
+import { ActiveDexieCalculationRepository } from './infrastructure/storage/active-calculation-repository';
 import { App } from './ui/App';
 import { DexieCalculatorSettingsRepository } from './infrastructure/storage/dexie-calculator-settings-repository';
 import { DexieDocumentSettingsRepository } from './infrastructure/storage/dexie-document-settings-repository';
@@ -10,7 +10,7 @@ import { createSupabaseBrowserClient, SupabaseAuthProvider } from './infrastruct
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CloudSettingsSync } from './application/settings/cloud-settings';
 import { SupabaseSettingsRepository } from './infrastructure/auth/supabase-settings-repository';
-import { copyCalculatorSettings } from './domain/configuration/calculator-settings';
+import { activateCalculatorSettings, ActiveCalculatorSettingsRepository } from './application/settings/active-calculator-settings';
 import type { CalculatorSettings } from './application/settings/calculator-settings';
 import { normalizeDocumentSettings } from './application/settings/document-settings';
 import { decodeDocumentSettingsCache } from './application/settings/document-settings-cache';
@@ -33,16 +33,16 @@ const renderProposalPdf: import('./application/documents/proposal-pdf').Proposal
 };
 function UserApp({ user, client }: { user: AuthUser; client: SupabaseClient }) {
   const repositories = useMemo(() => {
-    const calculatorCache = new DexieCalculatorSettingsRepository(database, user.id);
+    const calculatorCache = new DexieCalculatorSettingsRepository(database, user.id, activateCalculatorSettings);
     const documentCache = new DexieDocumentSettingsRepository(database, user.id);
-    const decodeCalculator = (value: unknown) => copyCalculatorSettings(value as CalculatorSettings);
+    const decodeCalculator = (value: unknown) => activateCalculatorSettings(value as CalculatorSettings);
     const calculator = new CloudSettingsSync(user.id, calculatorCache,
       new SupabaseSettingsRepository(client, user.id, 'calculator_settings', decodeCalculator), decodeCalculator, () => navigator.onLine);
     const documents = new CloudSettingsSync(user.id, { load: () => documentCache.load(), save: (value) => documentCache.saveCache(value) },
       new SupabaseSettingsRepository(client, user.id, 'document_settings', decodeDocumentSettingsCache), decodeDocumentSettingsCache, () => navigator.onLine);
     return {
-    repository: new DexieCalculationRepository(database, user.id),
-    settingsRepository: calculator,
+    repository: new ActiveDexieCalculationRepository(database, user.id),
+    settingsRepository: new ActiveCalculatorSettingsRepository(calculator),
     documentSettingsRepository: {
       load: () => documents.load(), reload: () => documents.reload(),
       save: (value: import('./application/settings/document-settings').DocumentSettings) => documents.save(normalizeDocumentSettings(value)),

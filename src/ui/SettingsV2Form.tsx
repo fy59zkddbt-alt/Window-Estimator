@@ -102,7 +102,7 @@ export function SettingsV2Form({ initial, onSave, onReload, onClose, notice = ''
     }} />;
   return <main className="settings-v2"><h1>Настройки расчёта</h1>
     <p>Настройте цены один раз и проверяйте их при изменении закупочных условий.</p>
-    <p className="notice">Настройки v2 подготовлены для нового расчёта. Текущий калькулятор пока использует прежние тарифы; переход будет отдельным этапом. Снимки сохранённых расчётов не меняются.</p>
+    <p className="notice">Настройки v2 используются для новых расчётов. Снимки настроек существующих расчётов не меняются.</p>
     {notice && <p role="alert">{notice}</p>}
     {onReload && <button type="button" disabled={busy} onClick={async () => {
       setBusy(true); setMessage('');

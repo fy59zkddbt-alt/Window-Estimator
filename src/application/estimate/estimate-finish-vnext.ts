@@ -15,7 +15,7 @@ export interface FinishEstimateVNext {
   price: FinishPriceVNext;
 }
 
-/** Standalone vNext entry point; no production totals or repository transition. */
+/** Canonical vNext finishing entry point, also used by production Calculation totals. */
 export function estimateFinishVNext(input: WindowFinishMeasurement, configuration: FinishConfiguration,
   stepRub: CommercialRoundingStepRub): FinishEstimateVNext {
   const measurement = copyDomainValue(input);

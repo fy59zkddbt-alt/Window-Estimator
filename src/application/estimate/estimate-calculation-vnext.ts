@@ -71,7 +71,7 @@ function discountTotals(value: Discount, subtotalMinor: number | null, step: Com
       ? null : finalTotalMinor - rawDiscountedTotalMinor };
 }
 
-/** Canonical Calculation v4 aggregation. No I/O, global settings or production v3 transition. */
+/** Canonical production Calculation v4 aggregation. No I/O or mutable global settings. */
 export function estimateCalculationVNext(calculation: Calculation) {
   if (calculation.schemaVersion !== 4 || !calculation.id.trim()) throw new Error('Некорректный расчёт.');
   const created = Date.parse(calculation.createdAt); const updated = Date.parse(calculation.updatedAt);

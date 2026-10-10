@@ -1,14 +1,14 @@
 import type { Discount } from './discount';
 import type { Measurement } from './measurements/vnext';
 import type { AdditionalWork } from './works/vnext';
-import type { CommercialRoundingStepRub, FinishConfiguration, GlazingConfiguration } from './configuration/vnext/types';
+import type { CalculatorSettings, CommercialRoundingStepRub, FinishConfiguration, GlazingConfiguration } from './configuration/vnext/types';
 import { copyDomainValue } from './configuration/vnext/copy';
 import { validateFinishConfiguration, validateGlazingConfiguration } from './configuration/vnext/validate';
 
 export type MeasurementConfiguration =
   | { kind: 'Window' | 'Balcony'; configuration: GlazingConfiguration }
   | { kind: 'WindowFinish'; configuration: FinishConfiguration };
-/** Future local container. Production repository remains on Calculation v3 until controlled transition. */
+/** Active calculator container. Pricing always uses owned configuration snapshots. */
 export interface Calculation {
   schemaVersion: 4;
   id: string;
@@ -23,6 +23,8 @@ export interface Calculation {
   discount: Discount;
   commercialRoundingStepRub: CommercialRoundingStepRub;
   configuration: Readonly<Record<string, MeasurementConfiguration>>;
+  /** Creation-time defaults/catalog for adding measurements; optional for pre-transition v4 fixtures. */
+  settingsSnapshot?: CalculatorSettings;
 }
 /** Hidden identities remain valid here; defaults/new-selection policy is intentionally absent. */
 export function copyMeasurementConfiguration(value: MeasurementConfiguration): MeasurementConfiguration {
