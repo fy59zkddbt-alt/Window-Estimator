@@ -66,3 +66,26 @@ figcaption span, figcaption strong { display: block; margin-top: 4px; }
 .settings-v2 .example-notice { position: static; margin: 20px 0; padding: 20px; background: #fff4d6; border: 1px solid #c27a00; border-radius: 12px; }
 .settings-v2 input[aria-invalid=true] { border-color: #a14029; }
 @media (max-width: 420px) { .settings-v2 form, .settings-v2 .measurement-card { padding: 12px; } .settings-v2 h1 { font-size: 28px; } }
+.glazing-editor { max-width: 760px; overflow-wrap: anywhere; }
+.glazing-editor form { padding: 16px; margin-top: 16px; min-width: 0; }
+.glazing-editor input, .glazing-editor select, .glazing-editor button, .glazing-editor summary { min-height: 48px; max-width: 100%; font-size: 16px; }
+.glazing-editor label { margin: 12px 0; font-size: 14px; min-width: 0; }
+.glazing-editor fieldset, .glazing-editor .fields, .glazing-editor section { min-width: 0; }
+.glazing-editor input[readonly] { background: #edf2ef; color: #536b62; }
+.glazing-editor .field-error { color: #832c1a; font-size: 14px; }
+.glazing-editor details { border-top: 1px solid #d6e0db; margin-top: 16px; padding-top: 12px; }
+.glazing-editor summary { padding: 12px 0; font-weight: 650; }
+.glazing-editor .checkbox { padding: 4px 0; min-height: 48px; }
+.glazing-editor header a { display: inline-block; min-height: 48px; padding: 12px 0; }
+.glazing-editor .checkbox input { min-height: 24px; width: 24px; flex-shrink: 0; }
+.editor-section { background: #f3f6f4; border-radius: 10px; padding: 12px; margin: 12px 0; }
+.editor-section h3 { margin: 4px 0 12px; font-size: 17px; }
+.editor-planes { display: flex; flex-wrap: wrap; gap: 8px; }
+.editor-planes button { flex: 1 1 130px; }
+.editor-planes button[aria-pressed=false] { background: #e0eae4; color: #234d41; }
+.editor-scheme { scroll-margin-top: 16px; }
+.glazing-editor .window-preview svg { height: 220px; }
+.editor-total { font-size: 22px; font-weight: 700; }
+.editor-actions { display: grid; gap: 8px; margin: 20px 0; }
+.editor-actions .secondary { margin: 0; }
+@media (max-width: 420px) { .glazing-editor form { padding: 12px; } .glazing-editor h1 { font-size: 28px; } }

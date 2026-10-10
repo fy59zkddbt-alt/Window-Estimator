@@ -17,7 +17,7 @@ export function WindowPreview({ geometry, label = 'Окно' }: { geometry: Geom
     </svg>
     <figcaption>
       <strong>Габарит эскиза: {bounds.widthMm.toLocaleString('ru-RU')} × {bounds.heightMm.toLocaleString('ru-RU')} мм</strong>
-      <span>Вид из помещения. Толстые отметки — петли; пунктир — откидывание; стрелка — sliding. Толщина профиля условная.</span>
+      <span>Вид из помещения. Толстые отметки — петли; пунктир — откидывание; стрелка — раздвижная створка. Толщина профиля условная.</span>
       <span>{geometry.splitLine ? 'Размеры элементов (верхний, затем нижний ярус)' : 'Элементы слева направо'}: {sections.map((section) => `${section.widthMm.toLocaleString('ru-RU', { maximumFractionDigits: 6 })} × ${section.heightMm.toLocaleString('ru-RU', { maximumFractionDigits: 6 })}`).join(' / ')} мм.</span>
       {transom && <span>Глухая фрамуга: {transom.heightMm.toLocaleString('ru-RU')} мм.</span>}
     </figcaption>
