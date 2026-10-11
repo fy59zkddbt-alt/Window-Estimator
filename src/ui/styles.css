@@ -1,32 +1,33 @@
 :root { font-family: system-ui, sans-serif; color: #18322e; background: #f3f6f4; font-synthesis: none; }
 .client-view { max-width: 760px; padding: 20px 12px 32px; overflow-wrap: anywhere; line-height: 1.5; }
 .client-view button { min-height: 48px; font-size: 16px; width: 100%; margin: 0; }
+.image-export { margin: 12px 0; }
+.image-export button + button { margin-top: 8px; }
 .client-header { margin: 24px 4px; }
+.client-header p { margin: 6px 0; }
 .client-view h1 { font-size: 28px; line-height: 1.2; }
 .client-view h2 { margin: 6px 0; font-size: 21px; }
 .client-view h3 { font-size: 16px; }
 .client-name { font-size: 20px; font-weight: 650; }
 .client-room { color: #536b62; margin-top: 4px; }
 .client-item { background: white; border: 1px solid #d6e0db; border-radius: 14px; padding: 16px; margin: 16px 0; min-width: 0; }
-.client-dimensions, .client-sections { list-style: none; margin: 16px 0; padding: 0; }
-.client-dimensions li, .client-sections li { margin: 8px 0; }
-.client-properties div { display: block; border: 0; padding: 4px 0; }
-.client-properties dt { color: #536b62; font-size: 13px; }
-.client-properties dd { text-align: left; }
-.client-scheme { margin: 20px 0; padding: 12px; border-radius: 10px; background: #f3f6f4; }
+.client-viewpoint { color: #536b62; font-size: 13px; margin: 12px 0 0; }
+.client-configuration { font-size: 14px; color: #536b62; }
+.client-configuration p { margin: 6px 0; }
+.client-scheme { margin: 12px 0; padding: 8px; border-radius: 10px; background: #f3f6f4; }
 .client-scheme figcaption { font-size: 14px; font-weight: 650; }
-.client-scheme svg { width: 100%; height: 220px; padding: 10px; display: block; }
-.client-sections { font-size: 13px; }
+.client-scheme > svg { width: 100%; height: auto; aspect-ratio: 620 / 440; display: block; }
 .client-prices div { flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
 .client-prices dt { flex: 1 1 120px; }
-.client-prices dd { margin-left: auto; font-weight: 650; }
+.client-prices dd { margin-left: auto; font-weight: 400; font-variant-numeric: tabular-nums; }
 .client-prices small { display: block; color: #536b62; font-size: 13px; }
-.client-item-total { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.client-item-total { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-weight: 650; }
 .client-summary { margin: 24px 0; padding: 20px 16px; border: 2px solid #236653; border-radius: 14px; background: white; }
-.client-final { font-size: 20px; margin-bottom: 0; }
-.client-final strong { display: block; font-size: 28px; }
+.client-final { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 20px; margin-bottom: 0; }
+.client-final strong { font-size: 28px; }
 .client-clarification { padding: 16px; border-radius: 10px; background: #fff4d6; color: #513300; }
-.client-seller { padding: 8px 4px 24px; }
+.client-seller { font-size: 13px; color: #536b62; margin-top: 14px; }
+.client-seller p { margin: 4px 0; }
 * { box-sizing: border-box; }
 body { margin: 0; }
 main { max-width: 1120px; padding: 40px 24px; margin: auto; }

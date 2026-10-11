@@ -17,10 +17,12 @@ async function main() {
     const buttons = await view().getByRole('button').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().toJSON()));
     for (const r of buttons) { assert.ok(r.height >= 48, '48px touch target'); assert.ok(r.x >= 0 && r.right <= 375, 'navigation fits'); }
     assert.equal(await view().locator('input,select,textarea,form,details,summary').count(), 0, 'no editor controls');
-    assert.equal(await view().getByRole('button').count(), 2, 'back navigation only');
+    assert.equal(await view().getByRole('button').count(), 3, 'back navigation and image export');
     const content = await view().innerText();
+    assert.doesNotMatch(content, /Секция \d|Верхний ряд|Нижний ряд|Площадь:|Округление суммы|Без ламинации|Вид из помещения · мм|,00\s*₽/);
+    assert.equal(await view().locator('.client-sections, .client-dimensions, .opening-symbol.hinge').count(), 0);
     assert.doesNotMatch(content, /tilt_turn|slidingPercent|profileId|hardwareId|unresolved|fixedFinalPrice|needsConfirmation|себестоимость|зарплат|наценк|запас 20/i);
-    const schemes = await view().locator('svg').evaluateAll((nodes) => nodes.map((node) => ({ scale: node.getAttribute('preserveAspectRatio'), width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height })));
+    const schemes = await view().locator('svg[role=img]').evaluateAll((nodes) => nodes.map((node) => ({ scale: node.getAttribute('preserveAspectRatio'), width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height })));
     for (const scheme of schemes) { assert.equal(scheme.scale, 'xMidYMid meet'); assert.ok(scheme.width > 100 && scheme.width < 375 && scheme.height >= 180); }
     mobileChecks++;
   }
@@ -38,14 +40,21 @@ async function main() {
       assert.ok(content.includes(doc.context.clientName)); assert.ok(content.includes(doc.context.objectAddress)); assert.ok(content.includes('Иван Петров'));
       for (const [itemIndex, item] of doc.items.entries()) {
         const card = view().getByRole('article').nth(itemIndex); assert.equal(await card.getAttribute('aria-label'), item.name);
-        for (const line of item.priceLines) { assert.ok(normalized(await card.innerText()).includes(normalized(line.amount.display))); assert.ok((await card.innerText()).includes(line.label)); }
-        assert.equal(await card.locator('svg').count(), item.schemes.length);
+        for (const line of item.priceLines) { assert.ok(normalized(await card.innerText()).includes(normalized(line.amount.display).replace(/,00(?=\s*₽$)/u, ''))); assert.ok((await card.innerText()).includes(line.label)); }
+        assert.equal(await card.locator('svg[role=img]').count(), item.schemes.length);
+        assert.equal(await card.locator('.opening-symbol.hinge').count(), 0);
+        if (item.schemes.length) assert.ok(await card.locator('.scheme-dimension text').count() > 0, 'dimensions live on scheme');
+        const configuration = await card.locator('.client-configuration').innerText();
+        if (item.properties.some(p => p.label === 'Материал' && p.value === 'Алюминий')) {
+          assert.match(configuration, /Цвет:/); assert.doesNotMatch(configuration, /ламинаци/i);
+        }
+        assert.doesNotMatch(configuration, /Секция|Петли|Верхний ряд|Нижний ряд|Площадь/);
         for (let index = 0; index < item.schemes.length; index++) {
-          const actual = await card.locator('svg').nth(index).locator('rect.section').evaluateAll((nodes) => nodes.map((node) => ['x', 'y', 'width', 'height'].map((key) => Number(node.getAttribute(key)))));
+          const actual = await card.locator('svg[role=img]').nth(index).locator('rect.section').evaluateAll((nodes) => nodes.map((node) => ['x', 'y', 'width', 'height'].map((key) => Number(node.getAttribute(key)))));
           assert.deepEqual(actual, item.schemes[index].geometry.sections.map((s) => [s.xMm, s.yMm, s.widthMm, s.heightMm]), 'ready canonical geometry copied exactly');
         }
       }
-      if (doc.summary.total) assert.equal(normalized(await page.getByTestId('client-final').innerText()), `Итого ${normalized(doc.summary.total.display)}`);
+      if (doc.summary.total) assert.equal(normalized(await page.getByTestId('client-final').innerText()), `Итого ${normalized(doc.summary.total.display).replace(/,00(?=\s*₽$)/u, '')}`);
       else { assert.equal(await page.getByTestId('client-final').count(), 0); assert.match(content, scenario === 'fixed-pending' ? /Итоговая стоимость требует подтверждения/ : /Цена отделки требует уточнения/); }
       if (scenario === 'percent') assert.ok(content.includes('Скидка 7,25%'));
       if (scenario.startsWith('large')) assert.ok(content.includes(scenario === 'large' ? '90 071 992 547 409,91' : '90 071 992 547 409,89'));
