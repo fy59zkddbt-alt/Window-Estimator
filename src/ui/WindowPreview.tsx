@@ -1,4 +1,5 @@
 import type { WindowEstimate } from '../domain/measurement-estimate';
+import { GlazingScheme } from './GlazingScheme';
 
 type Geometry = WindowEstimate['geometry'];
 
@@ -6,15 +7,7 @@ type Geometry = WindowEstimate['geometry'];
 export function WindowPreview({ geometry, label = 'Окно' }: { geometry: Geometry; label?: string }) {
   const { bounds, sections, transom } = geometry;
   return <figure className="window-preview">
-    <svg role="img" aria-label={`Технический эскиз: ${label}, вид из помещения`} viewBox={`${bounds.xMm} ${bounds.yMm} ${bounds.widthMm} ${bounds.heightMm}`} preserveAspectRatio="xMidYMid meet">
-      <title>{`${label} ${bounds.widthMm} × ${bounds.heightMm} мм, вид из помещения`}</title>
-      {transom && <rect className="glazing transom" x={transom.xMm} y={transom.yMm} width={transom.widthMm} height={transom.heightMm} vectorEffect="non-scaling-stroke" />}
-      {sections.map((section) => <g key={section.id}>
-        <rect className={`glazing section ${section.fill === 'sandwich' ? 'sandwich' : ''}`} x={section.xMm} y={section.yMm} width={section.widthMm} height={section.heightMm} vectorEffect="non-scaling-stroke" />
-        {section.symbols.map((symbol, index) => <polyline key={index} className={`opening-symbol ${symbol.kind}`} points={symbol.points.map((point) => `${point.xMm},${point.yMm}`).join(' ')} vectorEffect="non-scaling-stroke" />)}
-      </g>)}
-      {geometry.splitLine && <polyline className="opening-symbol" points={geometry.splitLine.map((point) => `${point.xMm},${point.yMm}`).join(' ')} vectorEffect="non-scaling-stroke" />}
-    </svg>
+    <GlazingScheme geometry={geometry} label={`Технический эскиз: ${label}, вид из помещения`} />
     <figcaption>
       <strong>Габарит эскиза: {bounds.widthMm.toLocaleString('ru-RU')} × {bounds.heightMm.toLocaleString('ru-RU')} мм</strong>
       <span>Вид из помещения. Толстые отметки — петли; пунктир — откидывание; стрелка — раздвижная створка. Толщина профиля условная.</span>

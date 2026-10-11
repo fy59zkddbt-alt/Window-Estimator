@@ -17,6 +17,9 @@ import { SettingsV2Form as SettingsScreen } from './SettingsV2Form';
 import type { DocumentSettingsRepository } from '../application/settings/document-settings';
 import { DocumentSettingsScreen } from './DocumentSettingsScreen';
 import type { ProposalPdfRenderer } from '../application/documents/proposal-pdf';
+import { buildProposalDocumentV2 } from '../application/documents/build-proposal-document-v2';
+import type { ProposalDocumentV2 } from '../domain/documents/proposal-document-v2';
+import { ClientView } from './ClientView';
 import './styles.css';
 
 type Editor = { id: string; kind: Measurement['kind']; initial?: Measurement; createWindowType?: 'balconyBlock'; finishSeed?: FinishSeed; snapshot: MeasurementConfiguration };
@@ -24,6 +27,7 @@ const now = () => new Date().toISOString();
 
 export function App({ repository, settingsRepository, documentSettingsRepository }: { repository: CalculationRepository; settingsRepository: CalculatorSettingsRepository; documentSettingsRepository: DocumentSettingsRepository; renderProposalPdf: ProposalPdfRenderer }) {
   const [showDocumentSettings, setShowDocumentSettings] = useState(false);
+  const [clientDocument, setClientDocument] = useState<ProposalDocumentV2>();
   const [settings, setSettings] = useState<CalculatorSettings>();
   const [showSettings, setShowSettings] = useState(false);
   const [calculations, setCalculations] = useState<Calculation[]>([]);
@@ -36,7 +40,7 @@ export function App({ repository, settingsRepository, documentSettingsRepository
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { window.scrollTo(0, 0); heading.current?.focus(); }, [screen, editor, current?.id, showSettings, showDocumentSettings]);
+  useEffect(() => { window.scrollTo(0, 0); heading.current?.focus(); }, [screen, editor, current?.id, showSettings, showDocumentSettings, clientDocument]);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -74,6 +78,7 @@ export function App({ repository, settingsRepository, documentSettingsRepository
     try { setError(''); setEditor({ id: crypto.randomUUID(), kind, snapshot: measurementSnapshot(current, kind), ...(createWindowType ? { createWindowType } : {}) }); }
     catch { setError('Не удалось открыть замер: в расчёте нет снимка настроек.'); }
   }
+  if (clientDocument) return <ClientView document={clientDocument} onBack={() => setClientDocument(undefined)} />;
   if (showDocumentSettings) return <DocumentSettingsScreen repository={documentSettingsRepository} onClose={() => setShowDocumentSettings(false)} />;
   if (showSettings && settings) return <SettingsScreen initial={settings} notice={settingsRepository.notice ?? ''} onReload={async () => {
     const value = await (settingsRepository.reload?.() ?? settingsRepository.load()); setSettings(value); return value;
@@ -140,6 +145,10 @@ export function App({ repository, settingsRepository, documentSettingsRepository
             {!!totals.measurements.length && totals.subtotalMinor !== null && <DiscountEditor key={`discount:${current.id}:${current.updatedAt}`} discount={totals.discount} subtotalMinor={totals.subtotalMinor} busy={busy}
               currentTotals={totals} previewDiscount={(input) => estimateCalculation(updateCalculationDiscount(current, input, current.updatedAt))}
               onApply={(input) => action(() => persist(updateCalculationDiscount(current, input, now())))} onConfirm={() => action(() => persist(confirmFixedFinalPrice(current, now())))} onReset={() => action(() => persist(resetCalculationDiscount(current, now())))} />}
+            <button disabled={!totals.measurements.length} onClick={() => void action(async () => {
+              const seller = await documentSettingsRepository.load();
+              setClientDocument(buildProposalDocumentV2(current, seller));
+            })}>Показать клиенту</button>
             <section aria-label="Коммерческое предложение"><button disabled>Сформировать КП</button><p className="muted">Формирование КП для нового формата расчёта пока недоступно.</p></section>
             <div className="calculation-actions"><button onClick={() => setScreen('choose')}>Добавить замер</button><button className="secondary" onClick={home}>К составу расчёта</button></div>
           </>}
