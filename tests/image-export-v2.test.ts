@@ -36,9 +36,10 @@ function safePages(pages: ImagePage[]) {
 
 describe('Feature 13 ProposalDocument-only image presentation', () => {
   it('has no calculation, estimate, pricing, mutable settings, conversion, persistence or PDF dependencies', () => {
-    const sources = [...readdirSync('src/ui/export').map((f) => `src/ui/export/${f}`), 'src/ui/proposal-presentation.ts', 'src/ui/glazing-drawing.ts', 'src/presentation/customer-money.ts', 'src/ui/ClientView.tsx'];
+    const sources = [...readdirSync('src/ui/export').filter(f => f !== 'PdfExportAction.tsx').map((f) => `src/ui/export/${f}`), 'src/ui/proposal-presentation.ts', 'src/ui/glazing-drawing.ts', 'src/presentation/proposal-presentation.ts', 'src/presentation/glazing-drawing.ts', 'src/presentation/customer-money.ts', 'src/ui/ClientView.tsx'];
     for (const file of sources) {
-      const source = readFileSync(file, 'utf8');
+      // Client View now also exposes the injected v2 PDF port, never a PDF implementation.
+      const source = readFileSync(file, 'utf8').replace(/import type .*proposal-pdf-v2';/g, '');
       expect(source).not.toMatch(/from ['"][^'"]*(calculation|estimate|pricing|settings|storage|pdf)|buildProposalDocument|commercialRound|percentageMinor|localStorage|indexedDB|Dexie|toDataURL|foreignObject/);
     }
     const d = doc(); const before = JSON.stringify(d); layout(d); expect(JSON.stringify(d)).toBe(before);

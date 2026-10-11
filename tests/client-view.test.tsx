@@ -95,9 +95,9 @@ describe('Feature 12 read-only Client View', () => {
   it.each(['tilt_turn', 'slidingPercent', 'profileId', 'hardwareId', 'unresolved', 'fixedFinalPrice', 'needsConfirmation', 'purchaseCost', 'installer', 'markup'])('never displays technical/internal %s', (value) => {
     expect(text(html(buildProposalDocumentV2(proposalCalculation())))).not.toContain(value);
   });
-  it('keeps Summary entry distinct from the disabled legacy proposal action', () => {
+  it('keeps Client View entry and the v2 PDF action free of legacy proposals', () => {
     const app = readFileSync('src/ui/App.tsx', 'utf8');
-    expect(app).toContain('Показать клиенту'); expect(app).toContain('<button disabled>Сформировать КП</button>');
+    expect(app).toContain('Показать клиенту'); expect(app).toContain('<PdfExportAction renderer={renderProposalPdf}');
     expect(app).toContain('<ClientView document={clientDocument}'); expect(app).not.toContain('createProposalDocument(');
   });
 });

@@ -16,7 +16,8 @@ import type { ActiveSettingsRepository as CalculatorSettingsRepository } from '.
 import { SettingsV2Form as SettingsScreen } from './SettingsV2Form';
 import type { DocumentSettingsRepository } from '../application/settings/document-settings';
 import { DocumentSettingsScreen } from './DocumentSettingsScreen';
-import type { ProposalPdfRenderer } from '../application/documents/proposal-pdf';
+import type { ProposalPdfV2Renderer } from '../application/documents/proposal-pdf-v2';
+import { PdfExportAction } from './export/PdfExportAction';
 import { buildProposalDocumentV2 } from '../application/documents/build-proposal-document-v2';
 import type { ProposalDocumentV2 } from '../domain/documents/proposal-document-v2';
 import { ClientView } from './ClientView';
@@ -25,7 +26,7 @@ import './styles.css';
 type Editor = { id: string; kind: Measurement['kind']; initial?: Measurement; createWindowType?: 'balconyBlock'; finishSeed?: FinishSeed; snapshot: MeasurementConfiguration };
 const now = () => new Date().toISOString();
 
-export function App({ repository, settingsRepository, documentSettingsRepository }: { repository: CalculationRepository; settingsRepository: CalculatorSettingsRepository; documentSettingsRepository: DocumentSettingsRepository; renderProposalPdf: ProposalPdfRenderer }) {
+export function App({ repository, settingsRepository, documentSettingsRepository, renderProposalPdf }: { repository: CalculationRepository; settingsRepository: CalculatorSettingsRepository; documentSettingsRepository: DocumentSettingsRepository; renderProposalPdf: ProposalPdfV2Renderer }) {
   const [showDocumentSettings, setShowDocumentSettings] = useState(false);
   const [clientDocument, setClientDocument] = useState<ProposalDocumentV2>();
   const [settings, setSettings] = useState<CalculatorSettings>();
@@ -78,7 +79,7 @@ export function App({ repository, settingsRepository, documentSettingsRepository
     try { setError(''); setEditor({ id: crypto.randomUUID(), kind, snapshot: measurementSnapshot(current, kind), ...(createWindowType ? { createWindowType } : {}) }); }
     catch { setError('Не удалось открыть замер: в расчёте нет снимка настроек.'); }
   }
-  if (clientDocument) return <ClientView document={clientDocument} onBack={() => setClientDocument(undefined)} />;
+  if (clientDocument) return <ClientView document={clientDocument} renderPdf={renderProposalPdf} onBack={() => setClientDocument(undefined)} />;
   if (showDocumentSettings) return <DocumentSettingsScreen repository={documentSettingsRepository} onClose={() => setShowDocumentSettings(false)} />;
   if (showSettings && settings) return <SettingsScreen initial={settings} notice={settingsRepository.notice ?? ''} onReload={async () => {
     const value = await (settingsRepository.reload?.() ?? settingsRepository.load()); setSettings(value); return value;
@@ -149,7 +150,8 @@ export function App({ repository, settingsRepository, documentSettingsRepository
               const seller = await documentSettingsRepository.load();
               setClientDocument(buildProposalDocumentV2(current, seller));
             })}>Показать клиенту</button>
-            <section aria-label="Коммерческое предложение"><button disabled>Сформировать КП</button><p className="muted">Формирование КП для нового формата расчёта пока недоступно.</p></section>
+            <PdfExportAction renderer={renderProposalPdf} disabled={!totals.measurements.length} getDocument={async () =>
+              buildProposalDocumentV2(current, await documentSettingsRepository.load())} />
             <div className="calculation-actions"><button onClick={() => setScreen('choose')}>Добавить замер</button><button className="secondary" onClick={home}>К составу расчёта</button></div>
           </>}
           <p className="muted">Замеры сохраняются после «Сохранить замер». Копирование и удаление сохраняются сразу. Незавершённый ввод в редакторе не сохраняется.</p>

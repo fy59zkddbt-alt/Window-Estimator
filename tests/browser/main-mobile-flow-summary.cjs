@@ -43,7 +43,7 @@ async function main() {
     } else assert.equal(await page.getByTestId('calculation-final').count(), 0);
     for (const measurement of canonical.measurements) for (const line of measurement.clientLines) assert.ok(content.includes(money(line.clientPriceMinor)));
     for (const line of canonical.orderAdditionalWorkLines) assert.ok(content.includes(money(line.clientPriceMinor)));
-    assert.equal(await button('Сформировать КП').isDisabled(), true); return canonical;
+    assert.equal(await button('Скачать PDF').isEnabled(), canonical.measurements.length > 0); return canonical;
   }
   async function remove(name, confirm = true) {
     await card(name).getByRole('button', { name: 'Удалить', exact: true }).click();

@@ -6,3 +6,5 @@ coverage/
 .env.local
 # Local Cloudflare Pages emulator state; never deployment input.
 .wrangler/
+# Temporary local PDF review; never part of the product or a commit.
+review-artifacts/feature-14/

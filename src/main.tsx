@@ -27,9 +27,9 @@ import { authCallbackUrl } from './infrastructure/auth/app-origin';
 
 // Composition root: the only place wiring UI to a concrete storage adapter.
 const database = new EstimatorDatabase();
-const renderProposalPdf: import('./application/documents/proposal-pdf').ProposalPdfRenderer = async (document) => {
-  const renderer = await import('./infrastructure/pdf/render-proposal-pdf');
-  return renderer.renderProposalPdf(document);
+const renderProposalPdf: import('./application/documents/proposal-pdf-v2').ProposalPdfV2Renderer = async (document) => {
+  const renderer = await import('./infrastructure/pdf-v2/render-proposal-pdf-v2');
+  return renderer.renderProposalPdfV2(document);
 };
 function UserApp({ user, client }: { user: AuthUser; client: SupabaseClient }) {
   const repositories = useMemo(() => {

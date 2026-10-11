@@ -197,9 +197,9 @@ describe('Feature 11 canonical Summary', () => {
     const markup = renderToStaticMarkup(<ActiveAdditionalWorksEditor works={[{ id: 'work', name: 'Работа', quantity: 0.1, unitPriceMinor: Number.MAX_SAFE_INTEGER }]} onChange={() => {}} />);
     expect(markup).toContain('value="90071992547409.91"');
   });
-  it('keeps v4 Proposal disabled and the flow free of legacy calculations, infrastructure and pricing imports', () => {
+  it('enables the v2 PDF port and keeps the flow free of legacy calculations, infrastructure and pricing imports', () => {
     const source = readFileSync('src/ui/App.tsx', 'utf8'); const summary = readFileSync('src/ui/CalculationSummary.tsx', 'utf8');
-    expect(source).toContain('<button disabled>Сформировать КП</button>');
+    expect(source).toContain('<PdfExportAction renderer={renderProposalPdf}');
     expect(source).not.toMatch(/createProposalDocument|renderProposalPdf\s*\(|from ['"].*infrastructure|from ['"].*domain\/calculation['"]/);
     expect(summary).not.toMatch(/from ['"].*domain\/pricing|from ['"].*domain\/money|settingsRepository/);
   });

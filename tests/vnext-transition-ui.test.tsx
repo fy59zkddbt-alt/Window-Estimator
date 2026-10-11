@@ -15,12 +15,10 @@ import * as legacyFinish from '../src/application/estimate/estimate-finish';
 const save = async () => {};
 const close = () => {};
 const format = (minor: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(minor / 100);
-it('keeps the proposal action unavailable for v4 with no legacy generator or conversion caller', () => {
+it('enables the v2 PDF port for v4 with no legacy generator or conversion caller', () => {
   const source = readFileSync('src/ui/App.tsx', 'utf8');
-  const section = source.match(/<section aria-label="Коммерческое предложение">([\s\S]*?)<\/section>/)?.[1];
-  expect(section).toContain('<button disabled>Сформировать КП</button>');
-  expect(section).toContain('Формирование КП для нового формата расчёта пока недоступно.');
-  expect(section).not.toContain('onClick');
+  expect(source).toContain('<PdfExportAction renderer={renderProposalPdf}');
+  expect(source).toContain('buildProposalDocumentV2(current, await documentSettingsRepository.load())');
   expect(source).not.toMatch(/createProposalDocument|generateProposal|renderProposalPdf\s*\(/);
   expect(source).not.toContain("from '../domain/calculation'");
 });

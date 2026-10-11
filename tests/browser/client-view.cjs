@@ -17,7 +17,7 @@ async function main() {
     const buttons = await view().getByRole('button').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().toJSON()));
     for (const r of buttons) { assert.ok(r.height >= 48, '48px touch target'); assert.ok(r.x >= 0 && r.right <= 375, 'navigation fits'); }
     assert.equal(await view().locator('input,select,textarea,form,details,summary').count(), 0, 'no editor controls');
-    assert.equal(await view().getByRole('button').count(), 3, 'back navigation and image export');
+    assert.equal(await view().getByRole('button').count(), await view().getByRole('button', { name: 'Скачать PDF', exact: true }).count() ? 4 : 3, 'back navigation and export controls');
     const content = await view().innerText();
     assert.doesNotMatch(content, /Секция \d|Верхний ряд|Нижний ряд|Площадь:|Округление суммы|Без ламинации|Вид из помещения · мм|,00\s*₽/);
     assert.equal(await view().locator('.client-sections, .client-dimensions, .opening-symbol.hinge').count(), 0);
@@ -31,7 +31,7 @@ async function main() {
       await page.goto(`${process.env.CLIENT_VIEW_URL || 'http://127.0.0.1:5173'}/tests/browser/client-view.html?scenario=${scenario}`);
       if (scenario !== 'document-only') {
         await button('Перейти к смете').click(); await page.getByRole('heading', { name: 'Смета', exact: true }).waitFor();
-        assert.equal(await button('Сформировать КП').isDisabled(), true);
+        assert.equal(await button('Скачать PDF').isEnabled(), true);
       }
       const before = await persisted(); const doc = await expected();
       if (scenario !== 'document-only') await button('Показать клиенту').click();
@@ -62,7 +62,7 @@ async function main() {
       assert.deepEqual(await persisted(), before);
       if (scenario !== 'document-only') {
         await button('Вернуться к смете').last().click(); await page.getByRole('heading', { name: 'Смета', exact: true }).waitFor();
-        assert.deepEqual(await persisted(), before); assert.equal(await button('Сформировать КП').isDisabled(), true);
+        assert.deepEqual(await persisted(), before); assert.equal(await button('Скачать PDF').isEnabled(), true);
         await page.evaluate(() => window.feature12.changeGlobalSettings()); await button('Показать клиенту').click(); await view().waitFor();
         assert.equal(normalized(await view().innerText()), content, 'mutable global settings do not alter document');
         await button('Вернуться к смете').first().click(); await page.getByRole('heading', { name: 'Смета', exact: true }).waitFor();
@@ -70,7 +70,7 @@ async function main() {
       }
     }
     assert.deepEqual(errors, []);
-    console.log(`Feature 12 browser passed: 10 scenarios, ${mobileChecks} layout/touch checks at 375px; all glazing kinds/shapes/mechanisms, exact canonical geometry/money, works, percent/fixed/manual/large/unresolved/pending, serialized document-only rendering, seller, long text, read-only back navigation, global snapshot boundary, disabled PDF; no runtime/console errors.`);
+    console.log(`Feature 12 browser passed: 10 scenarios, ${mobileChecks} layout/touch checks at 375px; content, exact money, geometry, unresolved, snapshots and read-only navigation preserved; v2 PDF action available; no runtime/console errors.`);
   } catch (error) { console.error('Browser errors:', errors); console.error('Page:', await page.locator('body').innerText()); throw error; }
   finally { await browser.close(); }
 }

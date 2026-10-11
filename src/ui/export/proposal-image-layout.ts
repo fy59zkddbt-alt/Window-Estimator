@@ -1,5 +1,5 @@
 import type { ProposalDocumentV2, ProposalSchemeGeometryV2, ProposalWorkV2 } from '../../domain/documents/proposal-document-v2';
-import { itemPresentation, sellerLines, summaryLines, workQuantity } from '../proposal-presentation';
+import { itemPresentation, proposalLabels as labels, sellerLines, summaryLines, workQuantity } from '../proposal-presentation';
 import { customerMoney } from '../../presentation/customer-money';
 import { schemeColumnWidths } from '../glazing-drawing';
 
@@ -62,11 +62,11 @@ export function layoutProposalImages(document: ProposalDocumentV2, measure: Meas
     ...price(`${work.name} · ${workQuantity(work)}`, customerMoney(work.amount)),
   ]);
   groups.push({ label: 'Предложение', summary: false, atoms: [
-    ...text(document.context.name || 'Ваше предложение', 'title'),
+    ...text(document.context.name || labels.title, 'title'),
     ...(document.context.clientName ? text(document.context.clientName) : []),
     ...([document.context.objectAddress, document.context.clientPhone].some(Boolean) ? text([document.context.objectAddress, document.context.clientPhone].filter(Boolean).join(' · '), 'small') : []),
     ...sellerLines(document.seller).flatMap((v) => text(v, 'small')),
-    ...(document.items.some(item => item.schemes.length) ? text('Размеры в мм', 'caption') : []),
+    ...(document.items.some(item => item.schemes.length) ? text(labels.units, 'caption') : []),
     ...(document.summary.message ? text(document.summary.message, 'notice') : []),
   ] });
   document.items.forEach((item, index) => {
@@ -76,14 +76,14 @@ export function layoutProposalImages(document: ProposalDocumentV2, measure: Meas
       ...(presentation.subtitle ? text(presentation.subtitle, 'small') : []),
       ...(presentation.room ? text(presentation.room, 'small') : []),
     ];
-    if (item.schemes.length) atoms.push(...text('Вид из помещения', 'caption'));
+    if (item.schemes.length) atoms.push(...text(labels.viewpoint, 'caption'));
     // Individual plane headings immediately precede their dimensioned drawings.
     // Dense planes get the full content width instead of shrinking section labels.
     const columns = item.schemes.some((s) => new Set(s.geometry.sections.map((section) => section.xMm)).size > 4) ? 1 : 3;
     for (let start = 0; start < presentation.schemes.length; start += columns) {
       const row = presentation.schemes.slice(start, start + columns);
       const widths = schemeColumnWidths(row.map(s => s.geometry), CONTENT_WIDTH);
-      const titles = row.map((s, i) => s.heading === 'Вид из помещения' ? [] : wrapImageText(`${s.heading}${s.note ? ` · ${s.note}` : ''}`, 'small', measure, widths[i]! - 12));
+      const titles = row.map((s, i) => s.heading === labels.viewpoint ? [] : wrapImageText(`${s.heading}${s.note ? ` · ${s.note}` : ''}`, 'small', measure, widths[i]! - 12));
       const headingHeight = Math.max(...titles.map((lines) => lines.length)) * textStyles.small.lineHeight;
       atoms.push({ kind: 'schemes', geometries: row.map((s) => s.geometry), titles, headingHeight, height: headingHeight + 380 });
     }
@@ -91,18 +91,18 @@ export function layoutProposalImages(document: ProposalDocumentV2, measure: Meas
     if (item.clarification) atoms.push(...text(item.clarification, 'notice'));
     atoms.push({ kind: 'text', text: '', style: 'caption', height: 10 });
     item.priceLines.forEach((line) => atoms.push(...price(line.label, customerMoney(line.amount))));
-    if (item.additionalWorks.length) atoms.push(...text('Дополнительные работы', 'heading'), ...works(item.additionalWorks));
-    if (presentation.showTotal) atoms.push(...price('Итого', customerMoney(item.total!), 'itemTotal'));
+    if (item.additionalWorks.length) atoms.push(...text(labels.works, 'heading'), ...works(item.additionalWorks));
+    if (presentation.showTotal) atoms.push(...price(labels.total, customerMoney(item.total!), 'itemTotal'));
     groups.push({ label: `Позиция ${index + 1}`, atoms, summary: false, closing: item.kind === 'WindowFinish' });
   });
   if (document.orderAdditionalWorks.length) groups.push({ label: 'Работы по заказу', summary: false, closing: true, atoms: [
-    ...text('Дополнительные работы по заказу', 'heading'), ...works(document.orderAdditionalWorks),
+    ...text(labels.orderWorks, 'heading'), ...works(document.orderAdditionalWorks),
   ] });
-  groups.push({ label: 'Стоимость предложения', summary: true, atoms: [
-    ...text('Стоимость предложения', 'heading'),
+  groups.push({ label: labels.summary, summary: true, atoms: [
+    ...text(labels.summary, 'heading'),
     ...summaryLines(document.summary).flatMap((line) => price(line.label, line.value)),
-    ...(document.summary.total ? price('Итого', customerMoney(document.summary.total), 'final')
-      : text(document.summary.message || 'Стоимость требует уточнения', 'notice')),
+    ...(document.summary.total ? price(labels.total, customerMoney(document.summary.total), 'final')
+      : text(document.summary.message || labels.clarification, 'notice')),
   ] });
 
   const pages: ImagePage[] = [];
