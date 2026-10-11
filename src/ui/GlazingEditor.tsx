@@ -9,11 +9,12 @@ import './styles.css';
 
 export interface GlazingEditorProps {
   id: string; kind: 'Window' | 'Balcony'; initial?: Glazing; configuration: GlazingConfiguration; step: CommercialRoundingStepRub;
+  createWindowType?: WindowMeasurement['windowType'];
   onSave: (value: Glazing) => Promise<void>; onCancel: () => void;
 }
-export function GlazingEditor({ id, kind, initial, configuration: snapshot, step, onSave, onCancel }: GlazingEditorProps) {
+export function GlazingEditor({ id, kind, initial, createWindowType = 'single', configuration: snapshot, step, onSave, onCancel }: GlazingEditorProps) {
   const [configuration] = useState(() => copyEditorMeasurement(snapshot));
-  const [value, setValue] = useState<Glazing>(() => initial ? copyEditorMeasurement(initial) : kind === 'Window' ? newWindow(id, configuration) : newBalcony(id, configuration));
+  const [value, setValue] = useState<Glazing>(() => initial ? copyEditorMeasurement(initial) : kind === 'Window' ? setWindowType(newWindow(id, configuration), createWindowType) : newBalcony(id, configuration));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());

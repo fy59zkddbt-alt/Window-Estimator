@@ -102,3 +102,29 @@ figcaption span, figcaption strong { display: block; margin-top: 4px; }
 .finish-result a { display: inline-block; min-height: 48px; padding: 12px 0; }
 .finish-editor .total { font-size: 30px; }
 @media (max-width: 420px) { .finish-editor form, .finish-result { padding: 12px; } .finish-editor h1 { font-size: 28px; } }
+.calculation-flow { max-width: 640px; overflow-wrap: anywhere; }
+.calculation-flow h1 { font-size: 28px; }
+.calculation-flow h1:focus { outline: none; }
+.calculation-flow .fields { grid-template-columns: minmax(0, 1fr); }
+.calculation-flow input, .calculation-flow select, .calculation-flow button, .calculation-flow summary { min-height: 48px; max-width: 100%; font-size: 16px; }
+.calculation-flow label { min-width: 0; font-size: 14px; }
+.calculation-flow fieldset, .calculation-flow section, .calculation-flow form, .calculation-flow details { min-width: 0; }
+.calculation-flow form, .calculation-flow .measurement-card { padding: 16px; }
+.calculation-flow .calculation-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.calculation-flow .secondary { margin: 0; }
+.calculation-flow summary { padding: 12px 0; font-weight: 650; margin-bottom: 0; }
+.calculation-flow details { border-bottom: 1px solid #d6e0db; margin-bottom: 16px; }
+.calculation-context p { margin: 6px 0; }
+.calculation-flow .muted { font-size: 13px; }
+.calculation-flow .total { font-size: 26px; margin: 16px 0; }
+.calculation-flow .work-row { display: grid; grid-template-columns: minmax(0, 1fr); padding: 12px; background: #f3f6f4; border-radius: 8px; }
+.calculation-flow .work-row label { margin: 8px 0; }
+.calculation-flow .client-lines div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+.calculation-flow .client-lines dd { max-width: 180px; }
+.client-lines small { display: block; color: #536b62; margin-top: 4px; }
+.calculation-flow .card-price { display: block; font-size: 21px; }
+.measurement-dimensions { font-size: 14px; line-height: 1.6; }
+.flow-primary { margin: 20px 0; padding: 16px; background: #e8eee4; border-radius: 12px; }
+.flow-primary .total { margin-top: 0; }
+.calculation-flow section[aria-label="Коммерческое предложение"] { padding: 16px 0; }
+.calculation-flow section[aria-label="Коммерческое предложение"] button { width: 100%; }
